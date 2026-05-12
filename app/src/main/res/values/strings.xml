@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Explit</string>
+    <string name="group_name">Group name</string>
+    <string name="category">Category</string>
+    <string name="add_group">Add Group</string>
+    <string name="history">History</string>
+    <string name="add_participant">Add Participant</string>
+    <string name="add_receipt">Add Receipt</string>
+    <string name="add_item">Add Item</string>
+    <string name="share_summary">Share Summary</string>
+    <string name="peso">Peso (₱)</string>
+    <string name="dollar">Dollar ($)</string>
+</resources>
