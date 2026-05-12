@@ -1,12 +1,51 @@
 <resources>
     <string name="app_name">Explit</string>
-    <string name="group_name">Group name</string>
+    <string name="tagline">Split smart, live easy</string>
+
+    <!-- Dashboard -->
+    <string name="welcome_message">Hello, %1$s</string>
+    <string name="total_you_owe">Total you owe</string>
+    <string name="total_owed_to_you">Total owed to you</string>
+    <string name="new_split">New Split</string>
+    <string name="settle_up">Settle Up</string>
+    <string name="recent_outings">Recent Outings</string>
+    <string name="your_groups">Your Groups</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_new_split">New Split</string>
+    <string name="nav_history">History</string>
+    <string name="nav_profile">Profile</string>
+
+    <!-- Event Creation -->
+    <string name="event_name_hint">Saturday Dinner</string>
     <string name="category">Category</string>
+    <string name="continue_to_people">Continue to Add People</string>
+    <string name="who_is_joining">Who\'s joining?</string>
+    <string name="add_receipt_items">Add Receipt / Items</string>
+
+    <!-- Receipt / Items -->
+    <string name="bill_summary">Bill Summary</string>
+    <string name="add_item">Add Item</string>
+    <string name="calculate_split">Calculate &amp; Split</string>
+    <string name="add_receipt_photo">Add Receipt Photo</string>
+
+    <!-- Settlement -->
+    <string name="settlement_summary">Settlement Summary</string>
+    <string name="save_event">Save Event</string>
+
+    <!-- Profile -->
+    <string name="currency">Currency</string>
+    <string name="default_split">Default split type</string>
+    <string name="export_data">Export All Data</string>
+    <string name="clear_history">Clear History</string>
+
+    <!-- General -->
+    <string name="group_name">Group name</string>
     <string name="add_group">Add Group</string>
     <string name="history">History</string>
     <string name="add_participant">Add Participant</string>
     <string name="add_receipt">Add Receipt</string>
-    <string name="add_item">Add Item</string>
     <string name="share_summary">Share Summary</string>
     <string name="peso">₱</string>
     <string name="dollar">$</string>

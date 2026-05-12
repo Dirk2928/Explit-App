@@ -135,6 +135,15 @@ public class EventDetailFragment extends Fragment {
         view.findViewById(R.id.button_add_participant).setOnClickListener(v -> showAddParticipantDialog());
         view.findViewById(R.id.button_add_receipt).setOnClickListener(v -> showAddReceiptDialog());
         view.findViewById(R.id.button_add_item).setOnClickListener(v -> showAddItemDialog());
+        
+        view.findViewById(R.id.button_view_summary).setOnClickListener(v -> {
+            if (ensureEventExists()) {
+                getParentFragmentManager().beginTransaction()
+                        .replace(R.id.main_container, SummaryFragment.newInstance(eventId))
+                        .addToBackStack(null)
+                        .commit();
+            }
+        });
 
         loadData();
     }

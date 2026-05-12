@@ -21,13 +21,15 @@ public class ExplitRepository {
     private final ExplitDbHelper dbHelper;
 
     // ---------------
-    // ExplitRepository
+    // constructor
+    // ---------------
     public ExplitRepository(Context context) {
         this.dbHelper = new ExplitDbHelper(context.getApplicationContext());
     }
 
     // ---------------
-    // createGroup
+    // create group
+    // ---------------
     public long createGroup(String name, String category) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -37,7 +39,8 @@ public class ExplitRepository {
     }
 
     // ---------------
-    // getGroups
+    // get all groups
+    // ---------------
     public List<Group> getGroups() {
         List<Group> groups = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
@@ -53,7 +56,25 @@ public class ExplitRepository {
     }
 
     // ---------------
-    // addParticipant
+    // search groups
+    // ---------------
+    public List<Group> searchGroups(String query) {
+        List<Group> groups = new ArrayList<>();
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT id, name, category FROM groups WHERE name LIKE ? ORDER BY name ASC", new String[]{"%" + query + "%"});
+        try {
+            while (cursor.moveToNext()) {
+                groups.add(new Group(cursor.getLong(0), cursor.getString(1), cursor.getString(2)));
+            }
+        } finally {
+            cursor.close();
+        }
+        return groups;
+    }
+
+    // ---------------
+    // add participant
+    // ---------------
     public long addParticipant(long groupId, String name, String nickname) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -64,7 +85,8 @@ public class ExplitRepository {
     }
 
     // ---------------
-    // getParticipants
+    // get participants
+    // ---------------
     public List<Participant> getParticipants(long groupId) {
         List<Participant> participants = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
@@ -80,7 +102,8 @@ public class ExplitRepository {
     }
 
     // ---------------
-    // createEvent
+    // create event
+    // ---------------
     public long createEvent(long groupId, String name, String currency, long paidByParticipantId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -92,34 +115,9 @@ public class ExplitRepository {
     }
 
     // ---------------
-    // updateEvent
-    public void updateEvent(long eventId, String name, String currency, long paidByParticipantId) {
-        SQLiteDatabase db = dbHelper.getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put("name", name);
-        values.put("currency", currency);
-        values.put("paid_by_participant_id", paidByParticipantId);
-        db.update("events", values, "id=?", new String[]{String.valueOf(eventId)});
-    }
-
+    // get all events
     // ---------------
-    // getEvent
-    public Event getEvent(long eventId) {
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT id, group_id, name, currency, paid_by_participant_id FROM events WHERE id=?", new String[]{String.valueOf(eventId)});
-        try {
-            if (cursor.moveToFirst()) {
-                return new Event(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getString(3), cursor.getLong(4));
-            }
-        } finally {
-            cursor.close();
-        }
-        return null;
-    }
-
-    // ---------------
-    // getEvents
-    public List<Event> getEvents() {
+    public List<Event> getAllEvents() {
         List<Event> events = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         Cursor cursor = db.rawQuery("SELECT id, group_id, name, currency, paid_by_participant_id FROM events ORDER BY id DESC", null);
@@ -134,7 +132,70 @@ public class ExplitRepository {
     }
 
     // ---------------
-    // addReceipt
+    // get events by group
+    // ---------------
+    public List<Event> getEventsByGroup(long groupId) {
+        List<Event> events = new ArrayList<>();
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT id, group_id, name, currency, paid_by_participant_id FROM events WHERE group_id=? ORDER BY id DESC", new String[]{String.valueOf(groupId)});
+        try {
+            while (cursor.moveToNext()) {
+                events.add(new Event(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getString(3), cursor.getLong(4)));
+            }
+        } finally {
+            cursor.close();
+        }
+        return events;
+    }
+
+    // ---------------
+    // get event
+    // ---------------
+    public Event getEvent(long eventId) {
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT id, group_id, name, currency, paid_by_participant_id FROM events WHERE id=?", new String[]{String.valueOf(eventId)});
+        try {
+            if (cursor.moveToFirst()) {
+                return new Event(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getString(3), cursor.getLong(4));
+            }
+        } finally {
+            cursor.close();
+        }
+        return null;
+    }
+
+    // ---------------
+    // update event
+    // ---------------
+    public void updateEvent(long eventId, String name, String currency, long paidByParticipantId) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("name", name);
+        values.put("currency", currency);
+        values.put("paid_by_participant_id", paidByParticipantId);
+        db.update("events", values, "id=?", new String[]{String.valueOf(eventId)});
+    }
+
+    // ---------------
+    // get receipts
+    // ---------------
+    public List<Receipt> getReceipts(long eventId) {
+        List<Receipt> receipts = new ArrayList<>();
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT id, event_id, title, tax, tip, service_charge, photo_path FROM receipts WHERE event_id=?", new String[]{String.valueOf(eventId)});
+        try {
+            while (cursor.moveToNext()) {
+                receipts.add(new Receipt(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getDouble(3), cursor.getDouble(4), cursor.getDouble(5), cursor.getString(6)));
+            }
+        } finally {
+            cursor.close();
+        }
+        return receipts;
+    }
+
+    // ---------------
+    // add receipt
+    // ---------------
     public long addReceipt(long eventId, String title, double tax, double tip, double serviceCharge, String photoPath) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -148,23 +209,28 @@ public class ExplitRepository {
     }
 
     // ---------------
-    // getReceipts
-    public List<Receipt> getReceipts(long eventId) {
-        List<Receipt> receipts = new ArrayList<>();
+    // get expense items for event
+    // ---------------
+    public List<ExpenseItem> getExpenseItemsForEvent(long eventId) {
+        List<ExpenseItem> items = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT id, event_id, title, tax, tip, service_charge, photo_path FROM receipts WHERE event_id=? ORDER BY id ASC", new String[]{String.valueOf(eventId)});
+        String query = "SELECT i.id, i.receipt_id, i.name, i.amount, i.shared, i.payer_participant_id " +
+                "FROM expense_items i JOIN receipts r ON i.receipt_id = r.id " +
+                "WHERE r.event_id = ?";
+        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(eventId)});
         try {
             while (cursor.moveToNext()) {
-                receipts.add(new Receipt(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getDouble(3), cursor.getDouble(4), cursor.getDouble(5), cursor.getString(6)));
+                items.add(new ExpenseItem(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getDouble(3), cursor.getInt(4) == 1, cursor.getLong(5)));
             }
         } finally {
             cursor.close();
         }
-        return receipts;
+        return items;
     }
 
     // ---------------
-    // addExpenseItem
+    // add expense item
+    // ---------------
     public long addExpenseItem(long receiptId, String name, double amount, boolean shared, long payerParticipantId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -177,7 +243,8 @@ public class ExplitRepository {
     }
 
     // ---------------
-    // updateExpenseItem
+    // update expense item
+    // ---------------
     public void updateExpenseItem(long itemId, String name, double amount, boolean shared, long payerParticipantId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -189,7 +256,8 @@ public class ExplitRepository {
     }
 
     // ---------------
-    // deleteExpenseItem
+    // delete expense item
+    // ---------------
     public void deleteExpenseItem(long itemId) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         db.delete("item_assignments", "item_id=?", new String[]{String.valueOf(itemId)});
@@ -197,61 +265,45 @@ public class ExplitRepository {
     }
 
     // ---------------
-    // getExpenseItemsForEvent
-    public List<ExpenseItem> getExpenseItemsForEvent(long eventId) {
-        List<ExpenseItem> items = new ArrayList<>();
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery(
-                "SELECT ei.id, ei.receipt_id, ei.name, ei.amount, ei.shared, ei.payer_participant_id " +
-                        "FROM expense_items ei INNER JOIN receipts r ON r.id = ei.receipt_id " +
-                        "WHERE r.event_id=? ORDER BY ei.id ASC",
-                new String[]{String.valueOf(eventId)}
-        );
-        try {
-            while (cursor.moveToNext()) {
-                items.add(new ExpenseItem(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getDouble(3), cursor.getInt(4) == 1, cursor.getLong(5)));
-            }
-        } finally {
-            cursor.close();
-        }
-        return items;
-    }
-
+    // replace assignments
     // ---------------
-    // replaceAssignments
     public void replaceAssignments(long itemId, List<ItemAssignment> assignments) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
-        db.delete("item_assignments", "item_id=?", new String[]{String.valueOf(itemId)});
-        for (ItemAssignment assignment : assignments) {
-            ContentValues values = new ContentValues();
-            values.put("item_id", itemId);
-            values.put("participant_id", assignment.getParticipantId());
-            if (assignment.getPercent() == null) {
-                values.putNull("percent");
-            } else {
+        db.beginTransaction();
+        try {
+            db.delete("item_assignments", "item_id=?", new String[]{String.valueOf(itemId)});
+            for (ItemAssignment assignment : assignments) {
+                ContentValues values = new ContentValues();
+                values.put("item_id", itemId);
+                values.put("participant_id", assignment.getParticipantId());
                 values.put("percent", assignment.getPercent());
+                db.insert("item_assignments", null, values);
             }
-            db.insert("item_assignments", null, values);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
         }
     }
 
     // ---------------
-    // getAssignmentsByItem
+    // get assignments by item
+    // ---------------
     public Map<Long, List<ItemAssignment>> getAssignmentsByItem(long eventId) {
         Map<Long, List<ItemAssignment>> map = new HashMap<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery(
-                "SELECT ia.item_id, ia.participant_id, ia.percent FROM item_assignments ia " +
-                        "INNER JOIN expense_items ei ON ei.id = ia.item_id " +
-                        "INNER JOIN receipts r ON r.id = ei.receipt_id WHERE r.event_id=?",
-                new String[]{String.valueOf(eventId)}
-        );
+        String query = "SELECT a.item_id, a.participant_id, a.percent " +
+                "FROM item_assignments a JOIN expense_items i ON a.item_id = i.id " +
+                "JOIN receipts r ON i.receipt_id = r.id " +
+                "WHERE r.event_id = ?";
+        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(eventId)});
         try {
             while (cursor.moveToNext()) {
                 long itemId = cursor.getLong(0);
-                long participantId = cursor.getLong(1);
-                Double percent = cursor.isNull(2) ? null : cursor.getDouble(2);
-                map.computeIfAbsent(itemId, ignored -> new ArrayList<>()).add(new ItemAssignment(itemId, participantId, percent));
+                ItemAssignment assignment = new ItemAssignment(itemId, cursor.getLong(1), cursor.getDouble(2));
+                if (!map.containsKey(itemId)) {
+                    map.put(itemId, new ArrayList<>());
+                }
+                map.get(itemId).add(assignment);
             }
         } finally {
             cursor.close();
@@ -260,17 +312,9 @@ public class ExplitRepository {
     }
 
     // ---------------
-    // getEventIdForReceipt
-    public long getEventIdForReceipt(long receiptId) {
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT event_id FROM receipts WHERE id=?", new String[]{String.valueOf(receiptId)});
-        try {
-            if (cursor.moveToFirst()) {
-                return cursor.getLong(0);
-            }
-        } finally {
-            cursor.close();
-        }
-        return -1L;
+    // get events (legacy)
+    // ---------------
+    public List<Event> getEvents() {
+        return getAllEvents();
     }
 }
