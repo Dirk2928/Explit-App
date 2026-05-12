@@ -38,6 +38,20 @@ public class EventDetailFragment extends Fragment {
     private static final String ARG_GROUP_ID = "arg_group_id";
     private static final String ARG_EVENT_ID = "arg_event_id";
 
+    private static class EventInput {
+        private final String rawName;
+        private final String name;
+        private final String currency;
+        private final long paidByParticipantId;
+
+        private EventInput(String rawName, String name, String currency, long paidByParticipantId) {
+            this.rawName = rawName;
+            this.name = name;
+            this.currency = currency;
+            this.paidByParticipantId = paidByParticipantId;
+        }
+    }
+
     private long groupId;
     private long eventId;
     private ExplitRepository repository;
@@ -158,17 +172,12 @@ public class EventDetailFragment extends Fragment {
     // ---------------
     // saveEvent
     private void saveEvent() {
-        String name = eventNameInput.getText().toString().trim();
-        if (name.isEmpty()) {
-            name = "Event";
-        }
-        String currency = String.valueOf(currencySpinner.getSelectedItem());
-        long paidByParticipantId = event != null ? event.getPaidByParticipantId() : -1;
+        EventInput input = readEventInput();
 
         if (eventId <= 0) {
-            eventId = repository.createEvent(groupId, name, currency, paidByParticipantId);
+            eventId = repository.createEvent(groupId, input.name, input.currency, input.paidByParticipantId);
         } else {
-            repository.updateEvent(eventId, name, currency, paidByParticipantId);
+            repository.updateEvent(eventId, input.name, input.currency, input.paidByParticipantId);
         }
 
         event = repository.getEvent(eventId);
@@ -186,20 +195,25 @@ public class EventDetailFragment extends Fragment {
     // ---------------
     // persistEventUpdates
     private void persistEventUpdates() {
+        EventInput input = readEventInput();
         if (eventId <= 0) {
+            if (event == null) {
+                return;
+            }
+            boolean nameChanged = !input.rawName.isEmpty() && !input.rawName.equals(event.getName());
+            boolean currencyChanged = !input.currency.equals(event.getCurrency());
+            if (!nameChanged && !currencyChanged) {
+                return;
+            }
+            eventId = repository.createEvent(groupId, input.name, input.currency, input.paidByParticipantId);
+            event = repository.getEvent(eventId);
             return;
         }
-        String name = eventNameInput.getText().toString().trim();
-        if (name.isEmpty()) {
-            name = "Event";
-        }
-        String currency = String.valueOf(currencySpinner.getSelectedItem());
-        long paidByParticipantId = event != null ? event.getPaidByParticipantId() : -1;
-        repository.updateEvent(eventId, name, currency, paidByParticipantId);
+        repository.updateEvent(eventId, input.name, input.currency, input.paidByParticipantId);
         if (event != null) {
-            event.setName(name);
-            event.setCurrency(currency);
-            event.setPaidByParticipantId(paidByParticipantId);
+            event.setName(input.name);
+            event.setCurrency(input.currency);
+            event.setPaidByParticipantId(input.paidByParticipantId);
         }
     }
 
@@ -450,6 +464,16 @@ public class EventDetailFragment extends Fragment {
         input.setInputType(inputType);
         root.addView(input);
         return input;
+    }
+
+    // ---------------
+    // readEventInput
+    private EventInput readEventInput() {
+        String rawName = eventNameInput.getText().toString().trim();
+        String name = rawName.isEmpty() ? "Event" : rawName;
+        String currency = String.valueOf(currencySpinner.getSelectedItem());
+        long paidByParticipantId = event != null ? event.getPaidByParticipantId() : -1;
+        return new EventInput(rawName, name, currency, paidByParticipantId);
     }
 
     // ---------------
