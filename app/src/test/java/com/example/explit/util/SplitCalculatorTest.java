@@ -11,12 +11,12 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 
-class SplitCalculatorTest {
+public class SplitCalculatorTest {
 
     // ---------------
     // calculateTotals_distributesExtrasProportionally
     @Test
-    void calculateTotals_distributesExtrasProportionally() {
+    public void calculateTotals_distributesExtrasProportionally() {
         ExpenseItem itemA = new ExpenseItem(10, 1, "Food", 60, true, -1);
         ExpenseItem itemB = new ExpenseItem(11, 1, "Drink", 40, true, -1);
 
@@ -36,7 +36,7 @@ class SplitCalculatorTest {
     // ---------------
     // minimizeTransactions_generatesSingleSettlement
     @Test
-    void minimizeTransactions_generatesSingleSettlement() {
+    public void minimizeTransactions_generatesSingleSettlement() {
         Map<Long, Double> net = Map.of(1L, 50d, 2L, -30d, 3L, -20d);
         List<SettlementCalculator.Payment> payments = SettlementCalculator.minimizeTransactions(net);
 

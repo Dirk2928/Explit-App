@@ -115,7 +115,7 @@ public class EventDetailFragment extends Fragment {
         expenseRecycler = view.findViewById(R.id.recycler_expenses);
         summaryText = view.findViewById(R.id.text_summary);
 
-        currencySpinner.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, new String[]{"₱", "$"}));
+        currencySpinner.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, new String[]{getString(R.string.peso), getString(R.string.dollar)}));
 
         participantAdapter = new ParticipantAdapter();
         participantRecycler.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -141,12 +141,12 @@ public class EventDetailFragment extends Fragment {
             event = repository.getEvent(eventId);
         }
         if (event == null && groupId > 0) {
-            event = new Event(-1, groupId, "New Event", "₱", -1);
+            event = new Event(-1, groupId, "New Event", getString(R.string.peso), -1);
         }
         if (event != null) {
             groupId = event.getGroupId();
             eventNameInput.setText(event.getName());
-            currencySpinner.setSelection("$".equals(event.getCurrency()) ? 1 : 0);
+            currencySpinner.setSelection(getString(R.string.dollar).equals(event.getCurrency()) ? 1 : 0);
         }
 
         participants = repository.getParticipants(groupId);
@@ -442,14 +442,14 @@ public class EventDetailFragment extends Fragment {
 
         List<String> lines = new ArrayList<>();
         lines.add("Totals:");
-        lines.addAll(SplitCalculator.toDisplayLines(names, totals, event != null ? event.getCurrency() : "₱"));
+        lines.addAll(SplitCalculator.toDisplayLines(names, totals, event != null ? event.getCurrency() : getString(R.string.peso)));
 
         lines.add("\nSettlements:");
         Map<Long, Double> net = SettlementCalculator.buildNetBalances(totals, paid);
         for (SettlementCalculator.Payment payment : SettlementCalculator.minimizeTransactions(net)) {
             String from = names.getOrDefault(payment.getFromParticipantId(), "P" + payment.getFromParticipantId());
             String to = names.getOrDefault(payment.getToParticipantId(), "P" + payment.getToParticipantId());
-            lines.add(from + " pays " + to + " " + (event != null ? event.getCurrency() : "₱") + String.format("%.2f", payment.getAmount()));
+            lines.add(from + " pays " + to + " " + (event != null ? event.getCurrency() : getString(R.string.peso)) + String.format("%.2f", payment.getAmount()));
         }
 
         summaryText.setText(joinLines(lines));

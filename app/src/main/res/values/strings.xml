@@ -8,6 +8,6 @@
     <string name="add_receipt">Add Receipt</string>
     <string name="add_item">Add Item</string>
     <string name="share_summary">Share Summary</string>
-    <string name="peso">Peso (₱)</string>
-    <string name="dollar">Dollar ($)</string>
+    <string name="peso">₱</string>
+    <string name="dollar">$</string>
 </resources>
