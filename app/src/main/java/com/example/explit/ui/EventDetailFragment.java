@@ -146,7 +146,7 @@ public class EventDetailFragment extends Fragment {
             event = repository.getEvent(eventId);
         }
         if (event == null && groupId > 0) {
-            event = new Event(-1, groupId, "New Event", getString(R.string.peso), -1);
+            event = new Event(-1, groupId, "", getString(R.string.peso), -1);
         }
         if (event != null) {
             groupId = event.getGroupId();
@@ -197,7 +197,7 @@ public class EventDetailFragment extends Fragment {
     private void persistEventUpdates() {
         EventInput input = readEventInput();
         if (eventId <= 0) {
-            String baselineName = event != null ? event.getName() : "New Event";
+            String baselineName = event != null ? event.getName() : "";
             String baselineCurrency = event != null ? event.getCurrency() : getString(R.string.peso);
             boolean nameChanged = !input.rawName.isEmpty() && !input.rawName.equals(baselineName);
             boolean currencyChanged = !input.currency.equals(baselineCurrency);
