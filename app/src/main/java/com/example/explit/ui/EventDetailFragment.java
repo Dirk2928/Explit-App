@@ -1,6 +1,5 @@
 package com.example.explit.ui;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.LayoutInflater;
@@ -28,8 +27,6 @@ import com.example.explit.model.ExpenseItem;
 import com.example.explit.model.ItemAssignment;
 import com.example.explit.model.Participant;
 import com.example.explit.model.Receipt;
-import com.example.explit.util.SettlementCalculator;
-import com.example.explit.util.SplitCalculator;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
@@ -41,16 +38,28 @@ public class EventDetailFragment extends Fragment {
     private static final String ARG_GROUP_ID = "arg_group_id";
     private static final String ARG_EVENT_ID = "arg_event_id";
 
+    private static class EventInput {
+        private final String rawName;
+        private final String name;
+        private final String currency;
+        private final long paidByParticipantId;
+
+        private EventInput(String rawName, String name, String currency, long paidByParticipantId) {
+            this.rawName = rawName;
+            this.name = name;
+            this.currency = currency;
+            this.paidByParticipantId = paidByParticipantId;
+        }
+    }
+
     private long groupId;
     private long eventId;
     private ExplitRepository repository;
 
     private EditText eventNameInput;
     private Spinner currencySpinner;
-    private Spinner paidBySpinner;
     private RecyclerView participantRecycler;
     private RecyclerView expenseRecycler;
-    private TextView summaryText;
 
     private ParticipantAdapter participantAdapter;
     private ExpenseItemAdapter expenseAdapter;
@@ -110,10 +119,8 @@ public class EventDetailFragment extends Fragment {
 
         eventNameInput = view.findViewById(R.id.edit_event_name);
         currencySpinner = view.findViewById(R.id.spinner_currency);
-        paidBySpinner = view.findViewById(R.id.spinner_paid_by);
         participantRecycler = view.findViewById(R.id.recycler_participants);
         expenseRecycler = view.findViewById(R.id.recycler_expenses);
-        summaryText = view.findViewById(R.id.text_summary);
 
         currencySpinner.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, new String[]{getString(R.string.peso), getString(R.string.dollar)}));
 
@@ -128,8 +135,6 @@ public class EventDetailFragment extends Fragment {
         view.findViewById(R.id.button_add_participant).setOnClickListener(v -> showAddParticipantDialog());
         view.findViewById(R.id.button_add_receipt).setOnClickListener(v -> showAddReceiptDialog());
         view.findViewById(R.id.button_add_item).setOnClickListener(v -> showAddItemDialog());
-        view.findViewById(R.id.button_save).setOnClickListener(v -> saveEvent());
-        view.findViewById(R.id.button_share).setOnClickListener(v -> shareSummary());
 
         loadData();
     }
@@ -141,7 +146,7 @@ public class EventDetailFragment extends Fragment {
             event = repository.getEvent(eventId);
         }
         if (event == null && groupId > 0) {
-            event = new Event(-1, groupId, "New Event", getString(R.string.peso), -1);
+            event = new Event(-1, groupId, "", getString(R.string.peso), -1);
         }
         if (event != null) {
             groupId = event.getGroupId();
@@ -151,7 +156,6 @@ public class EventDetailFragment extends Fragment {
 
         participants = repository.getParticipants(groupId);
         participantAdapter.setParticipants(participants);
-        bindPaidBySpinner();
 
         if (eventId > 0) {
             receipts = repository.getReceipts(eventId);
@@ -163,27 +167,53 @@ public class EventDetailFragment extends Fragment {
             assignmentsByItem = new HashMap<>();
         }
         expenseAdapter.setItems(items);
-        updateSummary();
     }
 
     // ---------------
     // saveEvent
     private void saveEvent() {
-        long selectedPayerId = getSelectedPaidByParticipantId();
-        String name = eventNameInput.getText().toString().trim();
-        if (name.isEmpty()) {
-            name = "Event";
-        }
-        String currency = String.valueOf(currencySpinner.getSelectedItem());
+        EventInput input = readEventInput();
 
         if (eventId <= 0) {
-            eventId = repository.createEvent(groupId, name, currency, selectedPayerId);
+            eventId = repository.createEvent(groupId, input.name, input.currency, input.paidByParticipantId);
         } else {
-            repository.updateEvent(eventId, name, currency, selectedPayerId);
+            repository.updateEvent(eventId, input.name, input.currency, input.paidByParticipantId);
         }
 
         event = repository.getEvent(eventId);
         loadData();
+    }
+
+    // ---------------
+    // onPause
+    @Override
+    public void onPause() {
+        super.onPause();
+        persistEventUpdates();
+    }
+
+    // ---------------
+    // persistEventUpdates
+    private void persistEventUpdates() {
+        EventInput input = readEventInput();
+        if (eventId <= 0) {
+            String baselineName = event != null ? event.getName() : "";
+            String baselineCurrency = event != null ? event.getCurrency() : getString(R.string.peso);
+            boolean nameChanged = !input.rawName.isEmpty() && !input.rawName.equals(baselineName);
+            boolean currencyChanged = !input.currency.equals(baselineCurrency);
+            if (!nameChanged && !currencyChanged) {
+                return;
+            }
+            eventId = repository.createEvent(groupId, input.name, input.currency, input.paidByParticipantId);
+            event = repository.getEvent(eventId);
+            return;
+        }
+        repository.updateEvent(eventId, input.name, input.currency, input.paidByParticipantId);
+        if (event != null) {
+            event.setName(input.name);
+            event.setCurrency(input.currency);
+            event.setPaidByParticipantId(input.paidByParticipantId);
+        }
     }
 
     // ---------------
@@ -221,8 +251,6 @@ public class EventDetailFragment extends Fragment {
                         repository.addParticipant(groupId, name, nicknameInput.getText().toString().trim());
                         participants = repository.getParticipants(groupId);
                         participantAdapter.setParticipants(participants);
-                        bindPaidBySpinner();
-                        updateSummary();
                     }
                 })
                 .setNegativeButton(android.R.string.cancel, null)
@@ -418,53 +446,6 @@ public class EventDetailFragment extends Fragment {
                 .show();
     }
 
-    // ---------------
-    // updateSummary
-    private void updateSummary() {
-        if (eventId <= 0) {
-            summaryText.setText("Create and save event to compute totals.");
-            return;
-        }
-
-        Map<Long, String> names = new HashMap<>();
-        for (Participant participant : participants) {
-            names.put(participant.getId(), participant.getDisplayName());
-        }
-
-        Map<Long, SplitCalculator.PersonTotal> totals = SplitCalculator.calculateTotals(items, assignmentsByItem, receipts);
-        Map<Long, Double> paid = new HashMap<>();
-        for (ExpenseItem item : items) {
-            long payer = item.getPayerParticipantId() > 0 ? item.getPayerParticipantId() : (event != null ? event.getPaidByParticipantId() : -1);
-            if (payer > 0) {
-                paid.put(payer, paid.getOrDefault(payer, 0d) + item.getAmount());
-            }
-        }
-
-        List<String> lines = new ArrayList<>();
-        lines.add("Totals:");
-        lines.addAll(SplitCalculator.toDisplayLines(names, totals, event != null ? event.getCurrency() : getString(R.string.peso)));
-
-        lines.add("\nSettlements:");
-        Map<Long, Double> net = SettlementCalculator.buildNetBalances(totals, paid);
-        for (SettlementCalculator.Payment payment : SettlementCalculator.minimizeTransactions(net)) {
-            String from = names.getOrDefault(payment.getFromParticipantId(), "P" + payment.getFromParticipantId());
-            String to = names.getOrDefault(payment.getToParticipantId(), "P" + payment.getToParticipantId());
-            lines.add(from + " pays " + to + " " + (event != null ? event.getCurrency() : getString(R.string.peso)) + String.format("%.2f", payment.getAmount()));
-        }
-
-        summaryText.setText(joinLines(lines));
-    }
-
-    // ---------------
-    // shareSummary
-    private void shareSummary() {
-        Intent intent = new Intent(Intent.ACTION_SEND);
-        intent.setType("text/plain");
-        intent.putExtra(Intent.EXTRA_TEXT, summaryText.getText().toString());
-        startActivity(Intent.createChooser(intent, "Share Explit Summary"));
-    }
-
-    // ---------------
     // buildVerticalLayout
     private LinearLayout buildVerticalLayout() {
         LinearLayout layout = new LinearLayout(requireContext());
@@ -482,6 +463,16 @@ public class EventDetailFragment extends Fragment {
         input.setInputType(inputType);
         root.addView(input);
         return input;
+    }
+
+    // ---------------
+    // readEventInput
+    private EventInput readEventInput() {
+        String rawName = eventNameInput.getText().toString().trim();
+        String name = rawName.isEmpty() ? "Event" : rawName;
+        String currency = String.valueOf(currencySpinner.getSelectedItem());
+        long paidByParticipantId = event != null ? event.getPaidByParticipantId() : -1;
+        return new EventInput(rawName, name, currency, paidByParticipantId);
     }
 
     // ---------------
@@ -511,35 +502,6 @@ public class EventDetailFragment extends Fragment {
         return names;
     }
 
-    // ---------------
-    // bindPaidBySpinner
-    private void bindPaidBySpinner() {
-        List<String> labels = new ArrayList<>();
-        labels.add("None");
-        int selectedIndex = 0;
-        for (int i = 0; i < participants.size(); i++) {
-            Participant participant = participants.get(i);
-            labels.add(participant.getDisplayName());
-            if (event != null && participant.getId() == event.getPaidByParticipantId()) {
-                selectedIndex = i + 1;
-            }
-        }
-        paidBySpinner.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, labels));
-        paidBySpinner.setSelection(selectedIndex);
-    }
-
-    // ---------------
-    // getSelectedPaidByParticipantId
-    private long getSelectedPaidByParticipantId() {
-        int index = paidBySpinner.getSelectedItemPosition();
-        if (index <= 0 || participants.isEmpty()) {
-            return -1;
-        }
-        int participantIndex = index - 1;
-        return participantIndex >= 0 && participantIndex < participants.size() ? participants.get(participantIndex).getId() : -1;
-    }
-
-    // ---------------
     // getSelectedParticipants
     private List<Participant> getSelectedParticipants(boolean[] selected) {
         List<Participant> selectedParticipants = new ArrayList<>();
