@@ -197,12 +197,10 @@ public class EventDetailFragment extends Fragment {
     private void persistEventUpdates() {
         EventInput input = readEventInput();
         if (eventId <= 0) {
-            Event currentEvent = event;
-            if (currentEvent == null) {
-                return;
-            }
-            boolean nameChanged = !input.rawName.isEmpty() && !input.rawName.equals(currentEvent.getName());
-            boolean currencyChanged = !input.currency.equals(currentEvent.getCurrency());
+            String baselineName = event != null ? event.getName() : "New Event";
+            String baselineCurrency = event != null ? event.getCurrency() : getString(R.string.peso);
+            boolean nameChanged = !input.rawName.isEmpty() && !input.rawName.equals(baselineName);
+            boolean currencyChanged = !input.currency.equals(baselineCurrency);
             if (!nameChanged && !currencyChanged) {
                 return;
             }
