@@ -29,10 +29,13 @@
     <string name="add_item">Add Item</string>
     <string name="calculate_split">Calculate &amp; Split</string>
     <string name="add_receipt_photo">Add Receipt Photo</string>
+    <string name="paid_by">Paid by</string>
+    <string name="select_payer">Select Payer</string>
 
     <!-- Settlement -->
     <string name="settlement_summary">Settlement Summary</string>
     <string name="save_event">Save Event</string>
+    <string name="export_summary">Export to File</string>
 
     <!-- Profile -->
     <string name="currency">Currency</string>

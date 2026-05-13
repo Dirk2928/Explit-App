@@ -1,5 +1,6 @@
 package com.example.explit.ui;
 
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.LayoutInflater;
@@ -9,6 +10,8 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -17,11 +20,13 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.explit.R;
 import com.example.explit.data.ExplitRepository;
+import com.example.explit.model.Event;
 import com.example.explit.model.ExpenseItem;
 import com.example.explit.model.ItemAssignment;
 import com.example.explit.model.Participant;
 import com.example.explit.model.Receipt;
 import com.example.explit.util.SplitCalculator;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
@@ -34,13 +39,24 @@ public class AddReceiptItemsFragment extends Fragment {
     private long groupId;
     private long eventId = -1;
     private long receiptId = -1;
+    private long payerId = -1;
     
     private ExplitRepository repository;
     private ExpenseItemAdapter adapter;
     
     private EditText editTax, editTip;
     private TextView textSubtotalPreview;
+    private MaterialButton buttonSelectPayer;
     private RecyclerView recyclerItems;
+
+    private final ActivityResultLauncher<String> photoPickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.GetContent(),
+            uri -> {
+                if (uri != null) {
+                    saveReceiptPhoto(uri);
+                }
+            }
+    );
 
     public static AddReceiptItemsFragment newInstance(long groupId) {
         AddReceiptItemsFragment fragment = new AddReceiptItemsFragment();
@@ -72,6 +88,7 @@ public class AddReceiptItemsFragment extends Fragment {
         editTax = view.findViewById(R.id.edit_tax);
         editTip = view.findViewById(R.id.edit_tip);
         textSubtotalPreview = view.findViewById(R.id.text_subtotal_preview);
+        buttonSelectPayer = view.findViewById(R.id.button_select_payer);
         recyclerItems = view.findViewById(R.id.recycler_items);
 
         adapter = new ExpenseItemAdapter(this::showItemActions);
@@ -80,10 +97,15 @@ public class AddReceiptItemsFragment extends Fragment {
 
         initializeEventAndReceipt();
 
+        buttonSelectPayer.setOnClickListener(v -> showPayerDialog());
         view.findViewById(R.id.button_add_item).setOnClickListener(v -> showAddItemDialog());
+        
+        view.findViewById(R.id.button_add_photo).setOnClickListener(v -> {
+            photoPickerLauncher.launch("image/*");
+        });
+
         view.findViewById(R.id.button_calculate).setOnClickListener(v -> {
-            saveReceiptDetails();
-            // Move to Phase 3: Summary Screen
+            saveReceiptAndEventDetails();
             getParentFragmentManager().beginTransaction()
                     .replace(R.id.main_container, SummaryFragment.newInstance(eventId))
                     .addToBackStack(null)
@@ -95,11 +117,17 @@ public class AddReceiptItemsFragment extends Fragment {
 
     private void initializeEventAndReceipt() {
         List<Event> events = repository.getEventsByGroup(groupId);
+        Event event;
         if (events.isEmpty()) {
             eventId = repository.createEvent(groupId, "New Split", "₱", -1);
+            event = repository.getEvent(eventId);
         } else {
-            eventId = events.get(0).getId();
+            event = events.get(0);
+            eventId = event.getId();
         }
+        
+        payerId = event.getPaidByParticipantId();
+        updatePayerButtonText();
 
         List<Receipt> receipts = repository.getReceipts(eventId);
         if (receipts.isEmpty()) {
@@ -109,6 +137,48 @@ public class AddReceiptItemsFragment extends Fragment {
             Receipt r = receipts.get(0);
             editTax.setText(String.valueOf(r.getTax()));
             editTip.setText(String.valueOf(r.getTip()));
+            
+            if (r.getPhotoPath() != null && !r.getPhotoPath().isEmpty()) {
+                MaterialButton btnPhoto = getView().findViewById(R.id.button_add_photo);
+                btnPhoto.setText("Receipt Attached ✅");
+            }
+        }
+    }
+
+    private void saveReceiptPhoto(Uri uri) {
+        if (receiptId != -1) {
+            repository.updateReceiptPhoto(receiptId, uri.toString());
+            MaterialButton btnPhoto = getView().findViewById(R.id.button_add_photo);
+            btnPhoto.setText("Receipt Attached ✅");
+            Toast.makeText(getContext(), "Receipt photo saved locally", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showPayerDialog() {
+        List<Participant> participants = repository.getParticipants(groupId);
+        String[] names = new String[participants.size()];
+        for (int i = 0; i < participants.size(); i++) names[i] = participants.get(i).getDisplayName();
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Who paid the bill?")
+                .setItems(names, (dialog, which) -> {
+                    payerId = participants.get(which).getId();
+                    updatePayerButtonText();
+                })
+                .show();
+    }
+
+    private void updatePayerButtonText() {
+        if (payerId == -1) {
+            buttonSelectPayer.setText("Select Payer");
+        } else {
+            List<Participant> participants = repository.getParticipants(groupId);
+            for (Participant p : participants) {
+                if (p.getId() == payerId) {
+                    buttonSelectPayer.setText("Paid by: " + p.getDisplayName());
+                    break;
+                }
+            }
         }
     }
 
@@ -123,7 +193,6 @@ public class AddReceiptItemsFragment extends Fragment {
         Map<Long, List<ItemAssignment>> assignments = repository.getAssignmentsByItem(eventId);
         List<Receipt> receipts = repository.getReceipts(eventId);
         
-        // Update current receipt in-memory for calculation
         if (!receipts.isEmpty()) {
             Receipt r = receipts.get(0);
             r.setTax(parseDouble(editTax.getText().toString()));
@@ -131,11 +200,8 @@ public class AddReceiptItemsFragment extends Fragment {
         }
 
         Map<Long, SplitCalculator.PersonTotal> totals = SplitCalculator.calculateTotals(items, assignments, receipts);
-        
         double grandTotal = 0;
-        for (SplitCalculator.PersonTotal pt : totals.values()) {
-            grandTotal += pt.getTotal();
-        }
+        for (SplitCalculator.PersonTotal pt : totals.values()) grandTotal += pt.getTotal();
         textSubtotalPreview.setText(String.format("Total: ₱%.2f", grandTotal));
     }
 
@@ -171,9 +237,7 @@ public class AddReceiptItemsFragment extends Fragment {
     private void autoAssignToAll(long itemId) {
         List<Participant> participants = repository.getParticipants(groupId);
         List<ItemAssignment> assignments = new ArrayList<>();
-        for (Participant p : participants) {
-            assignments.add(new ItemAssignment(itemId, p.getId(), null));
-        }
+        for (Participant p : participants) assignments.add(new ItemAssignment(itemId, p.getId(), null));
         repository.replaceAssignments(itemId, assignments);
     }
 
@@ -214,9 +278,7 @@ public class AddReceiptItemsFragment extends Fragment {
                 .setPositiveButton("Save", (dialog, which) -> {
                     List<ItemAssignment> newAssignments = new ArrayList<>();
                     for (int i = 0; i < checkedItems.length; i++) {
-                        if (checkedItems[i]) {
-                            newAssignments.add(new ItemAssignment(item.getId(), allParticipants.get(i).getId(), null));
-                        }
+                        if (checkedItems[i]) newAssignments.add(new ItemAssignment(item.getId(), allParticipants.get(i).getId(), null));
                     }
                     repository.replaceAssignments(item.getId(), newAssignments);
                     updateRunningBalance();
@@ -224,8 +286,11 @@ public class AddReceiptItemsFragment extends Fragment {
                 .show();
     }
 
-    private void saveReceiptDetails() {
-        // In a full implementation, we'd persist editTax/editTip to the DB here
+    private void saveReceiptAndEventDetails() {
+        Event event = repository.getEvent(eventId);
+        if (event != null) {
+            repository.updateEvent(eventId, event.getName(), event.getCurrency(), payerId);
+        }
     }
 
     private double parseDouble(String s) {

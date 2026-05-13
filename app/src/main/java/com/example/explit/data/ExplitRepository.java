@@ -209,6 +209,16 @@ public class ExplitRepository {
     }
 
     // ---------------
+    // update receipt photo
+    // ---------------
+    public void updateReceiptPhoto(long receiptId, String photoPath) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("photo_path", photoPath);
+        db.update("receipts", values, "id=?", new String[]{String.valueOf(receiptId)});
+    }
+
+    // ---------------
     // get expense items for event
     // ---------------
     public List<ExpenseItem> getExpenseItemsForEvent(long eventId) {

@@ -93,6 +93,26 @@
                             android:padding="12dp" />
 
                     </GridLayout>
+
+                    <!-- Payer Selection -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="Paid by"
+                        android:textColor="@color/text_light"
+                        android:textSize="12sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_select_payer"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Select Payer"
+                        android:textAlignment="viewStart"
+                        app:icon="@android:drawable/ic_menu_myplaces" />
+
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
