@@ -193,16 +193,16 @@ public class AddReceiptItemsFragment extends Fragment {
         Map<Long, List<ItemAssignment>> assignments = repository.getAssignmentsByItem(eventId);
         List<Receipt> receipts = repository.getReceipts(eventId);
         
-        if (!receipts.isEmpty()) {
-            Receipt r = receipts.get(0);
-            r.setTax(parseDouble(editTax.getText().toString()));
-            r.setTip(parseDouble(editTip.getText().toString()));
-        }
+        double extras = 0;
+        extras += parseDouble(editTax.getText().toString());
+        extras += parseDouble(editTip.getText().toString());
 
-        Map<Long, SplitCalculator.PersonTotal> totals = SplitCalculator.calculateTotals(items, assignments, receipts);
-        double grandTotal = 0;
-        for (SplitCalculator.PersonTotal pt : totals.values()) grandTotal += pt.getTotal();
-        textSubtotalPreview.setText(String.format("Total: ₱%.2f", grandTotal));
+        double itemTotal = 0;
+        for (ExpenseItem item : items) {
+            itemTotal += item.getAmount();
+        }
+        
+        textSubtotalPreview.setText(String.format("Total: ₱%.2f", itemTotal + extras));
     }
 
     private void showAddItemDialog() {
@@ -290,6 +290,11 @@ public class AddReceiptItemsFragment extends Fragment {
         Event event = repository.getEvent(eventId);
         if (event != null) {
             repository.updateEvent(eventId, event.getName(), event.getCurrency(), payerId);
+        }
+        if (receiptId != -1) {
+            double tax = parseDouble(editTax.getText().toString());
+            double tip = parseDouble(editTip.getText().toString());
+            repository.updateReceiptDetails(receiptId, tax, tip, 0);
         }
     }
 
