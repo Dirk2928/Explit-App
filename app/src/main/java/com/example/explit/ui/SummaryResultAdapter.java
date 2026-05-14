@@ -46,10 +46,13 @@ public class SummaryResultAdapter extends RecyclerView.Adapter<SummaryResultAdap
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Participant p = participants.get(position);
-        holder.name.setText(p.getDisplayName());
-        
+        String displayName = p.getDisplayName();
+        holder.name.setText(displayName);
+
         String initials = "";
-        if (!p.getName().isEmpty()) initials = p.getName().substring(0, 1).toUpperCase();
+        if (displayName != null && !displayName.isEmpty()) {
+            initials = displayName.substring(0, 1).toUpperCase();
+        }
         holder.initials.setText(initials);
 
         if (totals != null && totals.containsKey(p.getId())) {
@@ -61,8 +64,8 @@ public class SummaryResultAdapter extends RecyclerView.Adapter<SummaryResultAdap
             holder.amount.setText("₱0.00");
             holder.progress.setProgress(0);
         }
-        
-        holder.paidAmount.setVisibility(View.GONE); // Default for now
+
+        holder.paidAmount.setVisibility(View.GONE);
     }
 
     @Override

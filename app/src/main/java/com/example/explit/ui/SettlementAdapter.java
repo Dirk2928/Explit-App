@@ -3,13 +3,13 @@ package com.example.explit.ui;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.CheckBox;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.explit.R;
-import com.example.explit.model.Participant;
 import com.example.explit.util.SplitCalculator;
 
 import java.util.ArrayList;
@@ -20,11 +20,20 @@ public class SettlementAdapter extends RecyclerView.Adapter<SettlementAdapter.Vi
 
     private final List<SplitCalculator.Settlement> settlements = new ArrayList<>();
     private Map<Long, String> participantNames;
+    private Map<String, Integer> paidStatus;
+    private OnPaidToggleListener paidToggleListener;
 
-    public void setData(List<SplitCalculator.Settlement> settlements, Map<Long, String> participantNames) {
+    public interface OnPaidToggleListener {
+        void onToggle(long fromId, long toId, boolean paid);
+    }
+
+    public void setData(List<SplitCalculator.Settlement> settlements, Map<Long, String> participantNames,
+                        Map<String, Integer> paidStatus, OnPaidToggleListener listener) {
         this.settlements.clear();
         this.settlements.addAll(settlements);
         this.participantNames = participantNames;
+        this.paidStatus = paidStatus;
+        this.paidToggleListener = listener;
         notifyDataSetChanged();
     }
 
@@ -40,9 +49,19 @@ public class SettlementAdapter extends RecyclerView.Adapter<SettlementAdapter.Vi
         SplitCalculator.Settlement s = settlements.get(position);
         String from = participantNames.getOrDefault(s.fromId, "Unknown");
         String to = participantNames.getOrDefault(s.toId, "Unknown");
-        
+
         holder.instruction.setText(from + " pays " + to);
         holder.amount.setText(String.format("₱%.2f", s.amount));
+
+        String key = s.fromId + "_" + s.toId;
+        boolean isPaid = paidStatus != null && paidStatus.containsKey(key) && paidStatus.get(key) == 1;
+        holder.checkbox.setOnCheckedChangeListener(null);
+        holder.checkbox.setChecked(isPaid);
+        holder.checkbox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (paidToggleListener != null) {
+                paidToggleListener.onToggle(s.fromId, s.toId, isChecked);
+            }
+        });
     }
 
     @Override
@@ -52,11 +71,13 @@ public class SettlementAdapter extends RecyclerView.Adapter<SettlementAdapter.Vi
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView instruction, amount;
+        CheckBox checkbox;
 
         ViewHolder(View v) {
             super(v);
             instruction = v.findViewById(R.id.text_settlement_instruction);
             amount = v.findViewById(R.id.text_settlement_amount);
+            checkbox = v.findViewById(R.id.checkbox_paid);
         }
     }
 }

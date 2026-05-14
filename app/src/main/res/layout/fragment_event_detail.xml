@@ -14,10 +14,10 @@
             android:id="@+id/edit_event_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Event name" />
+            android:hint="Group name" />
 
         <Spinner
-            android:id="@+id/spinner_currency"
+            android:id="@+id/spinner_category"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp" />
@@ -44,7 +44,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Expenses"
+            android:text="Events"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -65,21 +65,13 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:text="@string/add_item" />
+                android:text="Add Event" />
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recycler_expenses"
             android:layout_width="match_parent"
             android:layout_height="220dp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/button_view_summary"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:backgroundTint="@color/primary"
-            android:text="View Summary &amp; Calculate" />
 
     </LinearLayout>
 </ScrollView>

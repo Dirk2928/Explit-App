@@ -40,6 +40,7 @@
             app:singleSelection="true">
 
             <com.google.android.material.chip.Chip
+                android:id="@+id/chip_all"
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -47,18 +48,21 @@
                 android:text="All" />
 
             <com.google.android.material.chip.Chip
+                android:id="@+id/chip_owe"
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="I Owe" />
 
             <com.google.android.material.chip.Chip
+                android:id="@+id/chip_owed"
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Owed to Me" />
 
             <com.google.android.material.chip.Chip
+                android:id="@+id/chip_settled"
                 style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

@@ -31,26 +31,27 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="80dp"
                 android:layout_height="80dp"
-                app:cardBackgroundColor="@color/input_background"
+                app:cardBackgroundColor="@color/primary"
                 app:cardCornerRadius="40dp"
                 app:cardElevation="0dp">
 
-                <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                <TextView
+                    android:id="@+id/text_profile_initials"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:src="@android:drawable/ic_menu_gallery"
-                    app:tint="@color/divider" />
+                    android:text="U"
+                    android:textColor="@color/white"
+                    android:textSize="32sp"
+                    android:textStyle="bold" />
             </com.google.android.material.card.MaterialCardView>
 
-            <EditText
-                android:id="@+id/edit_user_name"
+            <TextView
+                android:id="@+id/text_profile_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:background="@null"
-                android:gravity="center"
-                android:hint="Your Name"
+                android:text="User"
                 android:textColor="@color/text_dark"
                 android:textSize="18sp"
                 android:textStyle="bold" />

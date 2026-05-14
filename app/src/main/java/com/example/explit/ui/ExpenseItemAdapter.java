@@ -13,6 +13,7 @@ import com.example.explit.model.ExpenseItem;
 
 import java.util.ArrayList;
 import java.util.List;
+import android.widget.ImageButton;
 
 public class ExpenseItemAdapter extends RecyclerView.Adapter<ExpenseItemAdapter.ExpenseViewHolder> {
     private final List<ExpenseItem> items = new ArrayList<>();
@@ -43,7 +44,7 @@ public class ExpenseItemAdapter extends RecyclerView.Adapter<ExpenseItemAdapter.
     @NonNull
     @Override
     public ExpenseViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_expense, parent, false);
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_expense_bill, parent, false);
         return new ExpenseViewHolder(view);
     }
 
@@ -53,8 +54,9 @@ public class ExpenseItemAdapter extends RecyclerView.Adapter<ExpenseItemAdapter.
     public void onBindViewHolder(@NonNull ExpenseViewHolder holder, int position) {
         ExpenseItem item = items.get(position);
         holder.name.setText(item.getName());
-        holder.amount.setText(String.format("%.2f", item.getAmount()));
-        holder.shared.setVisibility(item.isShared() ? View.VISIBLE : View.GONE);
+        holder.amount.setText(String.format("₱%.2f", item.getAmount()));
+        holder.assignedTo.setVisibility(item.isShared() ? View.VISIBLE : View.GONE);
+        holder.menuButton.setOnClickListener(v -> listener.onLongClick(item));
         holder.itemView.setOnLongClickListener(v -> {
             listener.onLongClick(item);
             return true;
@@ -71,15 +73,15 @@ public class ExpenseItemAdapter extends RecyclerView.Adapter<ExpenseItemAdapter.
     static class ExpenseViewHolder extends RecyclerView.ViewHolder {
         TextView name;
         TextView amount;
-        TextView shared;
+        TextView assignedTo;
+        ImageButton menuButton;
 
-        // ---------------
-        // ExpenseViewHolder
         ExpenseViewHolder(@NonNull View itemView) {
             super(itemView);
             name = itemView.findViewById(R.id.text_item_name);
-            amount = itemView.findViewById(R.id.text_item_amount);
-            shared = itemView.findViewById(R.id.text_item_shared);
+            amount = itemView.findViewById(R.id.text_item_price);
+            assignedTo = itemView.findViewById(R.id.text_assigned_to);
+            menuButton = itemView.findViewById(R.id.button_item_menu);
         }
     }
 }

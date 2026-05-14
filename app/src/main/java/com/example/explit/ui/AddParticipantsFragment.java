@@ -84,7 +84,7 @@ public class AddParticipantsFragment extends Fragment {
             // Phase 1, Step 2: Navigate to Add Receipts screen
             // We pass the groupId to find/create an event for it
             getParentFragmentManager().beginTransaction()
-                    .replace(R.id.main_container, AddReceiptItemsFragment.newInstance(groupId))
+                    .replace(R.id.main_container, AddReceiptItemsFragment.newInstance(groupId, -1))
                     .addToBackStack(null)
                     .commit();
         });

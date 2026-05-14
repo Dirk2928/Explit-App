@@ -7,9 +7,15 @@
     android:orientation="horizontal"
     android:padding="12dp">
 
+    <CheckBox
+        android:id="@+id/checkbox_paid"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
     <ImageView
         android:layout_width="24dp"
         android:layout_height="24dp"
+        android:layout_marginStart="8dp"
         android:src="@android:drawable/ic_menu_send"
         android:contentDescription="Payment arrow"
         android:tint="@color/primary" />

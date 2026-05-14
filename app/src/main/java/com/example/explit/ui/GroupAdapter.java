@@ -12,34 +12,42 @@ import com.example.explit.R;
 import com.example.explit.model.Group;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class GroupAdapter extends RecyclerView.Adapter<GroupAdapter.GroupViewHolder> {
-    private final List<Group> groups = new ArrayList<>();
-    private final OnGroupClickListener listener;
 
     public interface OnGroupClickListener {
-        // ---------------
-        // onGroupClick
         void onGroupClick(Group group);
     }
 
-    // ---------------
-    // GroupAdapter
-    public GroupAdapter(OnGroupClickListener listener) {
-        this.listener = listener;
+    public interface OnGroupLongClickListener {
+        void onGroupLongClick(Group group);
     }
 
-    // ---------------
-    // setGroups
+    private final List<Group> groups = new ArrayList<>();
+    private final OnGroupClickListener listener;
+    private final OnGroupLongClickListener longClickListener;
+    private final Map<Long, Boolean> unpaidMap = new HashMap<>();
+
+    public GroupAdapter(OnGroupClickListener listener, OnGroupLongClickListener longClickListener) {
+        this.listener = listener;
+        this.longClickListener = longClickListener;
+    }
+
     public void setGroups(List<Group> list) {
+        setGroups(list, new HashMap<>());
+    }
+
+    public void setGroups(List<Group> list, Map<Long, Boolean> unpaidStatus) {
         groups.clear();
         groups.addAll(list);
+        unpaidMap.clear();
+        if (unpaidStatus != null) unpaidMap.putAll(unpaidStatus);
         notifyDataSetChanged();
     }
 
-    // ---------------
-    // onCreateViewHolder
     @NonNull
     @Override
     public GroupViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -47,18 +55,24 @@ public class GroupAdapter extends RecyclerView.Adapter<GroupAdapter.GroupViewHol
         return new GroupViewHolder(view);
     }
 
-    // ---------------
-    // onBindViewHolder
     @Override
     public void onBindViewHolder(@NonNull GroupViewHolder holder, int position) {
         Group group = groups.get(position);
         holder.name.setText(group.getName());
         holder.category.setText(group.getCategory());
         holder.itemView.setOnClickListener(v -> listener.onGroupClick(group));
+        holder.itemView.setOnLongClickListener(v -> {
+            longClickListener.onGroupLongClick(group);
+            return true;
+        });
+
+        if (unpaidMap.containsKey(group.getId()) && unpaidMap.get(group.getId())) {
+            holder.itemView.setBackgroundColor(0xFFFFEBEE);
+        } else {
+            holder.itemView.setBackgroundColor(0xFFFFFFFF);
+        }
     }
 
-    // ---------------
-    // getItemCount
     @Override
     public int getItemCount() {
         return groups.size();
@@ -68,8 +82,6 @@ public class GroupAdapter extends RecyclerView.Adapter<GroupAdapter.GroupViewHol
         TextView name;
         TextView category;
 
-        // ---------------
-        // GroupViewHolder
         GroupViewHolder(@NonNull View itemView) {
             super(itemView);
             name = itemView.findViewById(R.id.text_group_name);

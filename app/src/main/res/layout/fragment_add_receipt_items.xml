@@ -64,36 +64,6 @@
                             android:textStyle="bold" />
                     </LinearLayout>
 
-                    <GridLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:columnCount="2">
-
-                        <EditText
-                            android:id="@+id/edit_tax"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_columnWeight="1"
-                            android:layout_marginEnd="8dp"
-                            android:background="@color/input_background"
-                            android:hint="Tax %"
-                            android:inputType="numberDecimal"
-                            android:padding="12dp" />
-
-                        <EditText
-                            android:id="@+id/edit_tip"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_columnWeight="1"
-                            android:layout_marginStart="8dp"
-                            android:background="@color/input_background"
-                            android:hint="Tip"
-                            android:inputType="numberDecimal"
-                            android:padding="12dp" />
-
-                    </GridLayout>
-
                     <!-- Payer Selection -->
                     <TextView
                         android:layout_width="wrap_content"

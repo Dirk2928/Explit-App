@@ -3,12 +3,10 @@ package com.example.explit.ui;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -19,7 +17,6 @@ import com.example.explit.R;
 
 public class ProfileFragment extends Fragment {
 
-    private EditText editUserName;
     private SharedPreferences prefs;
 
     @Nullable
@@ -31,28 +28,18 @@ public class ProfileFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        
+
         prefs = requireContext().getSharedPreferences("explit_prefs", Context.MODE_PRIVATE);
-        editUserName = view.findViewById(R.id.edit_user_name); // I need to make sure this ID exists in XML or add it
+        String userName = prefs.getString("user_name", "User");
 
-        String savedName = prefs.getString("user_name", "");
-        editUserName.setText(savedName);
+        TextView initialsView = view.findViewById(R.id.text_profile_initials);
+        TextView nameView = view.findViewById(R.id.text_profile_name);
 
-        editUserName.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                prefs.edit().putString("user_name", s.toString().trim()).apply();
-            }
-        });
+        String initial = userName.isEmpty() ? "U" : userName.substring(0, 1).toUpperCase();
+        initialsView.setText(initial);
+        nameView.setText(userName);
 
         view.findViewById(R.id.button_clear_history).setOnClickListener(v -> {
-            // Logic to clear DB could go here
             Toast.makeText(getContext(), "Feature coming soon", Toast.LENGTH_SHORT).show();
         });
     }

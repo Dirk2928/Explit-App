@@ -22,8 +22,8 @@ public class MainActivity extends AppCompatActivity {
 
             if (itemId == R.id.nav_home) {
                 selectedFragment = new DashboardFragment();
-            } else if (itemId == R.id.nav_new_split) {
-                selectedFragment = new CreateEventFragment();
+            } else if (itemId == R.id.nav_new_group) {
+                selectedFragment = EventDetailFragment.newInstance(-1, -1);
             } else if (itemId == R.id.nav_history) {
                 selectedFragment = new HistoryFragment();
             } else if (itemId == R.id.nav_profile) {
@@ -38,7 +38,6 @@ public class MainActivity extends AppCompatActivity {
             return true;
         });
 
-        // Set default selection
         if (savedInstanceState == null) {
             bottomNav.setSelectedItemId(R.id.nav_home);
         }

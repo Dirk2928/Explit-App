@@ -2,11 +2,13 @@ package com.example.explit.ui;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -15,14 +17,16 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.explit.R;
+import com.example.explit.data.ExplitDbHelper;
 import com.example.explit.data.ExplitRepository;
 import com.example.explit.model.Event;
 import com.example.explit.model.ExpenseItem;
 import com.example.explit.model.Group;
 import com.example.explit.model.ItemAssignment;
-import com.example.explit.model.Participant;
 import com.example.explit.model.Receipt;
+import com.example.explit.model.SettlementStatus;
 import com.example.explit.util.SplitCalculator;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.HashMap;
 import java.util.List;
@@ -31,12 +35,13 @@ import java.util.Map;
 public class DashboardFragment extends Fragment {
 
     private ExplitRepository repository;
-    private TextView textWelcome;
-    private TextView textTotalOwe;
-    private TextView textTotalOwed;
     private RecyclerView recyclerGroups;
     private GroupAdapter groupAdapter;
     private SharedPreferences prefs;
+    private RecyclerView recyclerRecentOutings;
+    private EventHistoryAdapter recentOutingsAdapter;
+    private RecyclerView recyclerPendingPayments;
+    private PendingPaymentAdapter pendingPaymentAdapter;
 
     @Nullable
     @Override
@@ -50,19 +55,15 @@ public class DashboardFragment extends Fragment {
         repository = new ExplitRepository(requireContext());
         prefs = requireContext().getSharedPreferences("explit_prefs", Context.MODE_PRIVATE);
 
-        textWelcome = view.findViewById(R.id.text_welcome);
-        textTotalOwe = view.findViewById(R.id.text_total_owe);
-        textTotalOwed = view.findViewById(R.id.text_total_owed);
         recyclerGroups = view.findViewById(R.id.recycler_groups);
 
-        String userName = prefs.getString("user_name", "User");
-        textWelcome.setText(getString(R.string.welcome_message, userName));
-
         setupGroupsRecyclerView();
-        
-        view.findViewById(R.id.button_new_split).setOnClickListener(v -> {
+        setupRecentOutingsRecyclerView(view);
+        setupPendingPayments(view);
+
+        view.findViewById(R.id.text_see_all_groups).setOnClickListener(v -> {
             getParentFragmentManager().beginTransaction()
-                    .replace(R.id.main_container, new CreateEventFragment())
+                    .replace(R.id.main_container, new GroupListFragment())
                     .addToBackStack(null)
                     .commit();
         });
@@ -74,79 +75,92 @@ public class DashboardFragment extends Fragment {
         loadData();
     }
 
+    private void setupPendingPayments(View view) {
+        recyclerPendingPayments = view.findViewById(R.id.recycler_pending_payments);
+        recyclerPendingPayments.setLayoutManager(new LinearLayoutManager(requireContext()));
+        pendingPaymentAdapter = new PendingPaymentAdapter();
+        recyclerPendingPayments.setAdapter(pendingPaymentAdapter);
+        pendingPaymentAdapter.setRepository(repository);
+    }
+
     private void setupGroupsRecyclerView() {
         recyclerGroups.setLayoutManager(new LinearLayoutManager(requireContext()));
-        groupAdapter = new GroupAdapter(group -> {
+        groupAdapter = new GroupAdapter(
+                group -> {
+                    getParentFragmentManager().beginTransaction()
+                            .replace(R.id.main_container, EventDetailFragment.newInstance(group.getId(), -1))
+                            .addToBackStack(null)
+                            .commit();
+                },
+                group -> {
+                    new MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("Delete Group")
+                            .setMessage("Delete \"" + group.getName() + "\" and all its data?")
+                            .setPositiveButton("Delete", (dialog, which) -> {
+                                List<Event> events = repository.getEventsByGroup(group.getId());
+                                for (Event e : events) {
+                                    List<ExpenseItem> items = repository.getExpenseItemsForEvent(e.getId());
+                                    for (ExpenseItem item : items) {
+                                        repository.deleteExpenseItem(item.getId());
+                                    }
+                                }
+                                SQLiteDatabase db = new ExplitDbHelper(requireContext()).getWritableDatabase();
+                                db.delete("receipts", "event_id IN (SELECT id FROM events WHERE group_id=?)", new String[]{String.valueOf(group.getId())});
+                                db.delete("events", "group_id=?", new String[]{String.valueOf(group.getId())});
+                                db.delete("participants", "group_id=?", new String[]{String.valueOf(group.getId())});
+                                db.delete("groups", "id=?", new String[]{String.valueOf(group.getId())});
+                                db.close();
+                                loadData();
+                                Toast.makeText(getContext(), "Group deleted", Toast.LENGTH_SHORT).show();
+                            })
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                }
+        );
+        recyclerGroups.setAdapter(groupAdapter);
+    }
+
+    private void setupRecentOutingsRecyclerView(View view) {
+        recyclerRecentOutings = view.findViewById(R.id.recycler_recent_outings);
+        recyclerRecentOutings.setLayoutManager(new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
+        recentOutingsAdapter = new EventHistoryAdapter(event -> {
             getParentFragmentManager().beginTransaction()
-                    .replace(R.id.main_container, EventDetailFragment.newInstance(group.getId(), -1))
+                    .replace(R.id.main_container, SummaryFragment.newInstance(event.getId()))
                     .addToBackStack(null)
                     .commit();
-        });
-        recyclerGroups.setAdapter(groupAdapter);
+        }, null);
+        recyclerRecentOutings.setAdapter(recentOutingsAdapter);
     }
 
     private void loadData() {
         List<Group> groups = repository.getGroups();
-        if (groups.size() > 3) {
-            groupAdapter.setGroups(groups.subList(0, 3));
-        } else {
-            groupAdapter.setGroups(groups);
+        Map<Long, Boolean> groupUnpaidMap = new HashMap<>();
+        for (Group g : groups) {
+            groupUnpaidMap.put(g.getId(), repository.groupHasUnpaidSettlements(g.getId()));
         }
-
-        calculateGlobalBalance();
-    }
-
-    private void calculateGlobalBalance() {
-        String userName = prefs.getString("user_name", "");
-        if (userName.isEmpty()) {
-            textTotalOwe.setText("₱0.00");
-            textTotalOwed.setText("₱0.00");
-            return;
-        }
-
-        double totalOwe = 0;
-        double totalOwed = 0;
-
+        groupAdapter.setGroups(groups, groupUnpaidMap);
         List<Event> allEvents = repository.getAllEvents();
-        for (Event event : allEvents) {
-            List<Participant> participants = repository.getParticipants(event.getGroupId());
-            long myId = -1;
-            for (Participant p : participants) {
-                if (p.getName().equalsIgnoreCase(userName) || (p.getNickname() != null && p.getNickname().equalsIgnoreCase(userName))) {
-                    myId = p.getId();
-                    break;
-                }
-            }
-
-            if (myId == -1) continue;
-
-            List<ExpenseItem> items = repository.getExpenseItemsForEvent(event.getId());
-            Map<Long, List<ItemAssignment>> assignments = repository.getAssignmentsByItem(event.getId());
-            List<Receipt> receipts = repository.getReceipts(event.getId());
-
+        List<Event> recentEvents = allEvents.size() > 5 ? allEvents.subList(0, 5) : allEvents;
+        Map<Long, String> recentTotals = new HashMap<>();
+        for (Event e : recentEvents) {
+            List<ExpenseItem> items = repository.getExpenseItemsForEvent(e.getId());
+            Map<Long, List<ItemAssignment>> assignments = repository.getAssignmentsByItem(e.getId());
+            List<Receipt> receipts = repository.getReceipts(e.getId());
             Map<Long, SplitCalculator.PersonTotal> totals = SplitCalculator.calculateTotals(items, assignments, receipts);
-            
             double grandTotal = 0;
             for (SplitCalculator.PersonTotal pt : totals.values()) grandTotal += pt.getTotal();
-
-            long payerId = event.getPaidByParticipantId();
-            if (payerId == -1 && !participants.isEmpty()) payerId = participants.get(0).getId();
-
-            Map<Long, Double> paidMap = new HashMap<>();
-            if (payerId != -1) paidMap.put(payerId, grandTotal);
-
-            List<SplitCalculator.Settlement> settlements = SplitCalculator.calculateSettlements(totals, paidMap);
-
-            for (SplitCalculator.Settlement s : settlements) {
-                if (s.fromId == myId) {
-                    totalOwe += s.amount;
-                } else if (s.toId == myId) {
-                    totalOwed += s.amount;
-                }
-            }
+            recentTotals.put(e.getId(), String.format("₱%.2f", grandTotal));
         }
-
-        textTotalOwe.setText(String.format("₱%.2f", totalOwe));
-        textTotalOwed.setText(String.format("₱%.2f", totalOwed));
+        recentOutingsAdapter.setEvents(recentEvents, recentTotals, new HashMap<>(), null);
+        List<SettlementStatus> unpaidList = repository.getUnpaidSettlements();
+        pendingPaymentAdapter.setItems(unpaidList);
+        TextView textNoPending = requireView().findViewById(R.id.text_no_pending);
+        if (unpaidList.isEmpty()) {
+            textNoPending.setVisibility(View.VISIBLE);
+            recyclerPendingPayments.setVisibility(View.GONE);
+        } else {
+            textNoPending.setVisibility(View.GONE);
+            recyclerPendingPayments.setVisibility(View.VISIBLE);
+        }
     }
 }

@@ -10,6 +10,9 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.explit.R;
 import com.example.explit.data.ExplitRepository;
+import com.example.explit.model.Event;
+import java.util.HashMap;
+import java.util.List;
 
 public class HistoryActivity extends AppCompatActivity {
     private ExplitRepository repository;
@@ -30,7 +33,7 @@ public class HistoryActivity extends AppCompatActivity {
             intent.putExtra(EventActivity.EXTRA_GROUP_ID, event.getGroupId());
             intent.putExtra(EventActivity.EXTRA_EVENT_ID, event.getId());
             startActivity(intent);
-        });
+        }, null);
         recyclerView.setAdapter(adapter);
     }
 
@@ -39,6 +42,7 @@ public class HistoryActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        adapter.setEvents(repository.getEvents());
+        List<Event> events = repository.getAllEvents();
+        adapter.setEvents(events, new HashMap<>(), new HashMap<>(), null);
     }
 }

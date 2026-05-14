@@ -21,16 +21,24 @@ public class EventHistoryAdapter extends RecyclerView.Adapter<EventHistoryAdapte
     private final Map<Long, String> totals = new HashMap<>();
     private final Map<Long, String> balances = new HashMap<>();
     private final OnEventClickListener listener;
+    private final OnEventLongClickListener longClickListener;
+    private final Map<Long, Boolean> unpaidMap = new HashMap<>();
 
     public interface OnEventClickListener {
         void onClick(Event event);
     }
-
-    public EventHistoryAdapter(OnEventClickListener listener) {
-        this.listener = listener;
+    public interface OnEventLongClickListener {
+        void onLongClick(Event event);
     }
 
-    public void setEvents(List<Event> list, Map<Long, String> eventTotals, Map<Long, String> userBalances) {
+    public EventHistoryAdapter(OnEventClickListener listener, OnEventLongClickListener longClickListener) {
+        this.listener = listener;
+        this.longClickListener = longClickListener;
+    }
+
+    public void setEvents(List<Event> list, Map<Long, String> eventTotals, Map<Long, String> userBalances, Map<Long, Boolean> unpaidStatus) {
+        unpaidMap.clear();
+        if (unpaidStatus != null) unpaidMap.putAll(unpaidStatus);
         events.clear();
         events.addAll(list);
         totals.clear();
@@ -65,6 +73,17 @@ public class EventHistoryAdapter extends RecyclerView.Adapter<EventHistoryAdapte
         }
 
         holder.itemView.setOnClickListener(v -> listener.onClick(event));
+        holder.itemView.setOnLongClickListener(v -> {
+            if (longClickListener != null) {
+                longClickListener.onLongClick(event);
+            }
+            return true;
+        });
+        if (unpaidMap.containsKey(event.getId()) && unpaidMap.get(event.getId())) {
+            holder.itemView.setBackgroundColor(0xFFFFEBEE); // light red
+        } else {
+            holder.itemView.setBackgroundColor(0xFFFFFFFF); // white
+        }
     }
 
     @Override
