@@ -1,5 +1,6 @@
 package com.example.explit.ui;
 
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.explit.R;
+import com.example.explit.util.CurrencyHelper;
 import com.example.explit.util.SplitCalculator;
 
 import java.util.ArrayList;
@@ -20,20 +22,22 @@ public class SettlementAdapter extends RecyclerView.Adapter<SettlementAdapter.Vi
 
     private final List<SplitCalculator.Settlement> settlements = new ArrayList<>();
     private Map<Long, String> participantNames;
-    private Map<String, Integer> paidStatus;
+    private Map<String, Double> paidStatus;
     private OnPaidToggleListener paidToggleListener;
+    private Context context;
 
     public interface OnPaidToggleListener {
-        void onToggle(long fromId, long toId, boolean paid);
+        void onPay(long fromId, long toId, double totalAmount, double paidSoFar);
     }
 
     public void setData(List<SplitCalculator.Settlement> settlements, Map<Long, String> participantNames,
-                        Map<String, Integer> paidStatus, OnPaidToggleListener listener) {
+                        Map<String, Double> paidStatus, OnPaidToggleListener listener, Context context) {
         this.settlements.clear();
         this.settlements.addAll(settlements);
         this.participantNames = participantNames;
         this.paidStatus = paidStatus;
         this.paidToggleListener = listener;
+        this.context = context;
         notifyDataSetChanged();
     }
 
@@ -51,15 +55,33 @@ public class SettlementAdapter extends RecyclerView.Adapter<SettlementAdapter.Vi
         String to = participantNames.getOrDefault(s.toId, "Unknown");
 
         holder.instruction.setText(from + " pays " + to);
-        holder.amount.setText(String.format("₱%.2f", s.amount));
 
         String key = s.fromId + "_" + s.toId;
-        boolean isPaid = paidStatus != null && paidStatus.containsKey(key) && paidStatus.get(key) == 1;
+        double paidSoFar = paidStatus != null && paidStatus.containsKey(key) ? paidStatus.get(key) : 0;
+        boolean isFullyPaid;
+        if (context != null && CurrencyHelper.shouldRound(context)) {
+            isFullyPaid = Math.floor(paidSoFar) >= Math.floor(s.amount);
+        } else {
+            isFullyPaid = Math.abs(paidSoFar - s.amount) < 0.01;
+        }
+
         holder.checkbox.setOnCheckedChangeListener(null);
-        holder.checkbox.setChecked(isPaid);
-        holder.checkbox.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (paidToggleListener != null) {
-                paidToggleListener.onToggle(s.fromId, s.toId, isChecked);
+        holder.checkbox.setChecked(isFullyPaid);
+        holder.checkbox.setEnabled(false);
+
+        String displayAmount;
+        if (paidSoFar > 0 && !isFullyPaid) {
+            displayAmount = String.format("₱%.2f (₱%.2f paid, ₱%.2f left)", s.amount, paidSoFar, s.amount - paidSoFar);
+        } else if (isFullyPaid) {
+            displayAmount = String.format("₱%.2f ✓ Paid", s.amount);
+        } else {
+            displayAmount = String.format("₱%.2f", s.amount);
+        }
+        holder.amount.setText(displayAmount);
+
+        holder.itemView.setOnClickListener(v -> {
+            if (!isFullyPaid && paidToggleListener != null) {
+                paidToggleListener.onPay(s.fromId, s.toId, s.amount, paidSoFar);
             }
         });
     }

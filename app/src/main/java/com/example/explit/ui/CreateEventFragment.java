@@ -36,7 +36,6 @@ public class CreateEventFragment extends Fragment {
         editGroupName = view.findViewById(R.id.edit_event_name);
         chipGroupCategory = view.findViewById(R.id.chip_group_category);
 
-        // Update label from "Event Name" to "Group Name"
         editGroupName.setHint("Group Name");
 
         view.findViewById(R.id.button_continue).setOnClickListener(v -> {

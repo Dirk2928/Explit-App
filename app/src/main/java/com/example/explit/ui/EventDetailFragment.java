@@ -9,6 +9,7 @@ import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Toast;
+import android.content.ContentValues;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -99,6 +100,9 @@ public class EventDetailFragment extends Fragment {
             } else {
                 SQLiteDatabase db = new ExplitDbHelper(requireContext()).getWritableDatabase();
                 db.delete("participants", "id=?", new String[]{String.valueOf(participant.getId())});
+                ContentValues v = new ContentValues();
+                v.put("last_modified", System.currentTimeMillis());
+                db.update("groups", v, "id=?", new String[]{String.valueOf(groupId)});
                 db.close();
                 loadData();
                 Toast.makeText(getContext(), "Participant removed. Past events unchanged.", Toast.LENGTH_SHORT).show();
@@ -116,10 +120,28 @@ public class EventDetailFragment extends Fragment {
                                 .addToBackStack(null)
                                 .commit();
                     } else {
-                        getParentFragmentManager().beginTransaction()
-                                .replace(R.id.main_container, SummaryFragment.newInstance(event.getId()))
-                                .addToBackStack(null)
-                                .commit();
+                        Map<Long, List<ItemAssignment>> assignments = repository.getAssignmentsByItem(event.getId());
+                        List<Receipt> receipts = repository.getReceipts(event.getId());
+                        Map<Long, SplitCalculator.PersonTotal> totals = SplitCalculator.calculateTotals(items, assignments, receipts);
+                        double grandTotal = 0;
+                        for (SplitCalculator.PersonTotal pt : totals.values()) grandTotal += pt.getTotal();
+
+                        double savedBillTotal = 0;
+                        if (!receipts.isEmpty()) {
+                            savedBillTotal = receipts.get(0).getServiceCharge();
+                        }
+
+                        if (Math.abs(grandTotal - savedBillTotal) < 0.01 && savedBillTotal > 0) {
+                            getParentFragmentManager().beginTransaction()
+                                    .replace(R.id.main_container, SummaryFragment.newInstance(event.getId()))
+                                    .addToBackStack(null)
+                                    .commit();
+                        } else {
+                            getParentFragmentManager().beginTransaction()
+                                    .replace(R.id.main_container, AddReceiptItemsFragment.newInstance(groupId, event.getId()))
+                                    .addToBackStack(null)
+                                    .commit();
+                        }
                     }
                 },
                 event -> {
@@ -169,7 +191,6 @@ public class EventDetailFragment extends Fragment {
             view.findViewById(R.id.button_add_receipt).setVisibility(View.GONE);
         }
 
-        // Add Event button
         view.findViewById(R.id.button_add_item).setOnClickListener(v -> {
             if (isNewGroup) {
                 Toast.makeText(getContext(), "Save the group first", Toast.LENGTH_SHORT).show();
@@ -183,6 +204,26 @@ public class EventDetailFragment extends Fragment {
         } else {
             eventRecycler.setVisibility(View.GONE);
             view.findViewById(R.id.button_add_item).setVisibility(View.GONE);
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (!isNewGroup && groupId > 0) {
+            String name = groupNameInput.getText().toString().trim();
+            String category = categorySpinner.getSelectedItem().toString();
+            if (!name.isEmpty()) {
+                SQLiteDatabase db = new ExplitDbHelper(requireContext()).getWritableDatabase();
+                ContentValues values = new ContentValues();
+                values.put("name", name);
+                values.put("category", category);
+                db.update("groups", values, "id=?", new String[]{String.valueOf(groupId)});
+                ContentValues v = new ContentValues();
+                v.put("last_modified", System.currentTimeMillis());
+                db.update("groups", v, "id=?", new String[]{String.valueOf(groupId)});
+                db.close();
+            }
         }
     }
 
@@ -204,6 +245,9 @@ public class EventDetailFragment extends Fragment {
         requireActivity().getSupportFragmentManager().beginTransaction()
                 .replace(R.id.main_container, new DashboardFragment())
                 .commit();
+        if (requireActivity() instanceof MainActivity) {
+            ((MainActivity) requireActivity()).setNavSelected(R.id.nav_home);
+        }
     }
 
     @Override
@@ -235,8 +279,11 @@ public class EventDetailFragment extends Fragment {
         for (Event event : events) {
             unpaidMap.put(event.getId(), repository.hasUnpaidSettlements(event.getId()));
         }
-        eventAdapter.setEvents(events, eventTotals, userBalances, unpaidMap);
-
+        Map<Long, Boolean> incompleteMap = new HashMap<>();
+        for (Event event : events) {
+            incompleteMap.put(event.getId(), repository.isEventIncomplete(event.getId()));
+        }
+        eventAdapter.setEvents(events, eventTotals, userBalances, unpaidMap, incompleteMap);
         com.example.explit.model.Group group = null;
         List<com.example.explit.model.Group> groups = repository.getGroups();
         for (com.example.explit.model.Group g : groups) {
@@ -267,10 +314,6 @@ public class EventDetailFragment extends Fragment {
         nameInput.setHint("Name");
         layout.addView(nameInput);
 
-        EditText nicknameInput = new EditText(requireContext());
-        nicknameInput.setHint("Nickname (optional)");
-        layout.addView(nicknameInput);
-
         new MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Add Participant")
                 .setView(layout)
@@ -278,18 +321,15 @@ public class EventDetailFragment extends Fragment {
                     String name = nameInput.getText().toString().trim();
                     if (!name.isEmpty()) {
                         if (isNewGroup) {
-                            participants.add(new Participant(-1, -1, name, nicknameInput.getText().toString().trim()));
-                            participantAdapter.setParticipants(participants);
+                            participants.add(new Participant(-1, -1, name, ""));                            participantAdapter.setParticipants(participants);
                         } else {
-                            repository.addParticipant(groupId, name, nicknameInput.getText().toString().trim());
-                            loadData();
+                            repository.addParticipant(groupId, name, "");                            loadData();
                         }
                     }
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }
-
     private void showAddEventDialog() {
         android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
         layout.setOrientation(android.widget.LinearLayout.VERTICAL);

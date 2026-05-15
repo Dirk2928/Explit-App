@@ -68,12 +68,10 @@ public class ParticipantAdapter extends RecyclerView.Adapter<ParticipantAdapter.
     public int getItemCount() {
         return participants.size();
     }
-
     static class ParticipantViewHolder extends RecyclerView.ViewHolder {
         TextView initials;
         EditText name;
         ImageButton removeButton;
-
         ParticipantViewHolder(@NonNull View itemView) {
             super(itemView);
             initials = itemView.findViewById(R.id.text_initials);

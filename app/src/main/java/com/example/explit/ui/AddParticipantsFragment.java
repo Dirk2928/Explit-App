@@ -74,15 +74,12 @@ public class AddParticipantsFragment extends Fragment {
         });
 
         view.findViewById(R.id.button_next_to_receipt).setOnClickListener(v -> {
-            // Check if there are participants
             List<Participant> currentList = repository.getParticipants(groupId);
             if (currentList.isEmpty()) {
                 Toast.makeText(getContext(), "Add at least one participant", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Phase 1, Step 2: Navigate to Add Receipts screen
-            // We pass the groupId to find/create an event for it
             getParentFragmentManager().beginTransaction()
                     .replace(R.id.main_container, AddReceiptItemsFragment.newInstance(groupId, -1))
                     .addToBackStack(null)

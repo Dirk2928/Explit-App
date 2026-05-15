@@ -10,8 +10,6 @@ public class EventActivity extends AppCompatActivity {
     public static final String EXTRA_GROUP_ID = "extra_group_id";
     public static final String EXTRA_EVENT_ID = "extra_event_id";
 
-    // ---------------
-    // onCreate
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

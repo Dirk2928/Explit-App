@@ -18,8 +18,6 @@ public class HistoryActivity extends AppCompatActivity {
     private ExplitRepository repository;
     private EventHistoryAdapter adapter;
 
-    // ---------------
-    // onCreate
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -37,12 +35,10 @@ public class HistoryActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
     }
 
-    // ---------------
-    // onResume
     @Override
     protected void onResume() {
         super.onResume();
         List<Event> events = repository.getAllEvents();
-        adapter.setEvents(events, new HashMap<>(), new HashMap<>(), null);
+        adapter.setEvents(events, new HashMap<>(), new HashMap<>(), null, null);
     }
 }

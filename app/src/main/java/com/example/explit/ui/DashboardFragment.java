@@ -28,6 +28,7 @@ import com.example.explit.model.SettlementStatus;
 import com.example.explit.util.SplitCalculator;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -124,21 +125,64 @@ public class DashboardFragment extends Fragment {
         recyclerRecentOutings = view.findViewById(R.id.recycler_recent_outings);
         recyclerRecentOutings.setLayoutManager(new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false));
         recentOutingsAdapter = new EventHistoryAdapter(event -> {
-            getParentFragmentManager().beginTransaction()
-                    .replace(R.id.main_container, SummaryFragment.newInstance(event.getId()))
-                    .addToBackStack(null)
-                    .commit();
+            List<ExpenseItem> items = repository.getExpenseItemsForEvent(event.getId());
+            if (items.isEmpty()) {
+                getParentFragmentManager().beginTransaction()
+                        .replace(R.id.main_container, AddReceiptItemsFragment.newInstance(event.getGroupId(), event.getId()))
+                        .addToBackStack(null)
+                        .commit();
+            } else {
+                Map<Long, List<ItemAssignment>> assignments = repository.getAssignmentsByItem(event.getId());
+                List<Receipt> receipts = repository.getReceipts(event.getId());
+                Map<Long, SplitCalculator.PersonTotal> totals = SplitCalculator.calculateTotals(items, assignments, receipts);
+                double grandTotal = 0;
+                for (SplitCalculator.PersonTotal pt : totals.values()) grandTotal += pt.getTotal();
+
+                double savedBillTotal = 0;
+                if (!receipts.isEmpty()) {
+                    savedBillTotal = receipts.get(0).getServiceCharge();
+                }
+
+                if (Math.abs(grandTotal - savedBillTotal) < 0.01 && savedBillTotal > 0) {
+                    getParentFragmentManager().beginTransaction()
+                            .replace(R.id.main_container, SummaryFragment.newInstance(event.getId()))
+                            .addToBackStack(null)
+                            .commit();
+                } else {
+                    getParentFragmentManager().beginTransaction()
+                            .replace(R.id.main_container, AddReceiptItemsFragment.newInstance(event.getGroupId(), event.getId()))
+                            .addToBackStack(null)
+                            .commit();
+                }
+            }
         }, null);
         recyclerRecentOutings.setAdapter(recentOutingsAdapter);
     }
 
     private void loadData() {
-        List<Group> groups = repository.getGroups();
-        Map<Long, Boolean> groupUnpaidMap = new HashMap<>();
-        for (Group g : groups) {
-            groupUnpaidMap.put(g.getId(), repository.groupHasUnpaidSettlements(g.getId()));
+        List<Group> pinnedGroups = repository.getPinnedGroups();
+        List<Group> recentGroups = repository.getRecentGroups(2);
+        List<Group> displayGroups = new ArrayList<>(pinnedGroups);
+        for (Group rg : recentGroups) {
+            boolean alreadyAdded = false;
+            for (Group pg : pinnedGroups) {
+                if (pg.getId() == rg.getId()) {
+                    alreadyAdded = true;
+                    break;
+                }
+            }
+            if (!alreadyAdded) displayGroups.add(rg);
         }
-        groupAdapter.setGroups(groups, groupUnpaidMap);
+
+        Map<Long, Boolean> groupStatusMap = new HashMap<>();
+        for (Group g : displayGroups) {
+            if (repository.groupHasUnpaidSettlements(g.getId())) {
+                groupStatusMap.put(g.getId(), false);
+            } else if (repository.groupHasIncompleteEvents(g.getId())) {
+                groupStatusMap.put(g.getId(), true);
+            }
+        }
+        groupAdapter.setGroups(displayGroups, groupStatusMap);
         List<Event> allEvents = repository.getAllEvents();
         List<Event> recentEvents = allEvents.size() > 5 ? allEvents.subList(0, 5) : allEvents;
         Map<Long, String> recentTotals = new HashMap<>();
@@ -151,15 +195,20 @@ public class DashboardFragment extends Fragment {
             for (SplitCalculator.PersonTotal pt : totals.values()) grandTotal += pt.getTotal();
             recentTotals.put(e.getId(), String.format("₱%.2f", grandTotal));
         }
-        recentOutingsAdapter.setEvents(recentEvents, recentTotals, new HashMap<>(), null);
+        Map<Long, Boolean> recentUnpaidMap = new HashMap<>();
+        for (Event e : recentEvents) {
+            recentUnpaidMap.put(e.getId(), repository.hasUnpaidSettlements(e.getId()));
+        }
+        Map<Long, Boolean> recentIncompleteMap = new HashMap<>();
+        for (Event e : recentEvents) {
+            recentIncompleteMap.put(e.getId(), repository.isEventIncomplete(e.getId()));
+        }
+        recentOutingsAdapter.setEvents(recentEvents, recentTotals, new HashMap<>(), recentUnpaidMap, recentIncompleteMap);
         List<SettlementStatus> unpaidList = repository.getUnpaidSettlements();
         pendingPaymentAdapter.setItems(unpaidList);
-        TextView textNoPending = requireView().findViewById(R.id.text_no_pending);
         if (unpaidList.isEmpty()) {
-            textNoPending.setVisibility(View.VISIBLE);
             recyclerPendingPayments.setVisibility(View.GONE);
         } else {
-            textNoPending.setVisibility(View.GONE);
             recyclerPendingPayments.setVisibility(View.VISIBLE);
         }
     }

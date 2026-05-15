@@ -6,62 +6,38 @@ public class Event {
     private String name;
     private String currency;
     private long paidByParticipantId;
+    private long lastModified;
 
-    // ---------------
-    // Event
     public Event(long id, long groupId, String name, String currency, long paidByParticipantId) {
+        this(id, groupId, name, currency, paidByParticipantId, 0);
+    }
+
+    public Event(long id, long groupId, String name, String currency, long paidByParticipantId, long lastModified) {
         this.id = id;
         this.groupId = groupId;
         this.name = name;
         this.currency = currency;
         this.paidByParticipantId = paidByParticipantId;
+        this.lastModified = lastModified;
     }
 
-    // ---------------
-    // getId
-    public long getId() {
-        return id;
-    }
+    public long getId() { return id; }
 
-    // ---------------
-    // getGroupId
-    public long getGroupId() {
-        return groupId;
-    }
+    public long getGroupId() { return groupId; }
 
-    // ---------------
-    // getName
-    public String getName() {
-        return name;
-    }
+    public String getName() { return name; }
 
-    // ---------------
-    // setName
-    public void setName(String name) {
-        this.name = name;
-    }
+    public void setName(String name) { this.name = name; }
 
-    // ---------------
-    // getCurrency
-    public String getCurrency() {
-        return currency;
-    }
+    public String getCurrency() { return currency; }
 
-    // ---------------
-    // setCurrency
-    public void setCurrency(String currency) {
-        this.currency = currency;
-    }
+    public void setCurrency(String currency) { this.currency = currency; }
 
-    // ---------------
-    // getPaidByParticipantId
-    public long getPaidByParticipantId() {
-        return paidByParticipantId;
-    }
+    public long getPaidByParticipantId() { return paidByParticipantId; }
 
-    // ---------------
-    // setPaidByParticipantId
-    public void setPaidByParticipantId(long paidByParticipantId) {
-        this.paidByParticipantId = paidByParticipantId;
-    }
+    public void setPaidByParticipantId(long paidByParticipantId) { this.paidByParticipantId = paidByParticipantId; }
+
+    public long getLastModified() { return lastModified; }
+
+    public void setLastModified(long lastModified) { this.lastModified = lastModified; }
 }

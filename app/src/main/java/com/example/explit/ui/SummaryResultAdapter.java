@@ -1,5 +1,6 @@
 package com.example.explit.ui;
 
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,11 +23,13 @@ public class SummaryResultAdapter extends RecyclerView.Adapter<SummaryResultAdap
     private final List<Participant> participants = new ArrayList<>();
     private Map<Long, SplitCalculator.PersonTotal> totals;
     private double grandTotal = 0;
+    private Context context;
 
-    public void setData(List<Participant> participants, Map<Long, SplitCalculator.PersonTotal> totals) {
+    public void setData(List<Participant> participants, Map<Long, SplitCalculator.PersonTotal> totals, Context context) {
         this.participants.clear();
         this.participants.addAll(participants);
         this.totals = totals;
+        this.context = context;
         this.grandTotal = 0;
         if (totals != null) {
             for (SplitCalculator.PersonTotal pt : totals.values()) {

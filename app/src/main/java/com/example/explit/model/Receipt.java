@@ -9,8 +9,6 @@ public class Receipt {
     private double serviceCharge;
     private String photoPath;
 
-    // ---------------
-    // Receipt
     public Receipt(long id, long eventId, String title, double tax, double tip, double serviceCharge, String photoPath) {
         this.id = id;
         this.eventId = eventId;
@@ -21,44 +19,28 @@ public class Receipt {
         this.photoPath = photoPath;
     }
 
-    // ---------------
-    // getId
     public long getId() {
         return id;
     }
-
-    // ---------------
-    // getEventId
     public long getEventId() {
         return eventId;
     }
-
-    // ---------------
-    // getTitle
     public String getTitle() {
         return title;
     }
 
-    // ---------------
-    // getTax
     public double getTax() {
         return tax;
     }
 
-    // ---------------
-    // getTip
     public double getTip() {
         return tip;
     }
 
-    // ---------------
-    // getServiceCharge
     public double getServiceCharge() {
         return serviceCharge;
     }
 
-    // ---------------
-    // getPhotoPath
     public String getPhotoPath() {
         return photoPath;
     }

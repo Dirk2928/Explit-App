@@ -24,7 +24,6 @@ import com.example.explit.model.ItemAssignment;
 import com.example.explit.model.Participant;
 import com.example.explit.model.Receipt;
 import com.example.explit.util.SplitCalculator;
-import com.google.android.material.chip.ChipGroup;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,7 +37,6 @@ public class HistoryFragment extends Fragment {
     private EventHistoryAdapter adapter;
     private SharedPreferences prefs;
     private EditText editSearch;
-    private ChipGroup chipGroupFilters;
 
     @Nullable
     @Override
@@ -54,17 +52,40 @@ public class HistoryFragment extends Fragment {
 
         recyclerView = view.findViewById(R.id.recycler_history);
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+
         adapter = new EventHistoryAdapter(event -> {
-            getParentFragmentManager().beginTransaction()
-                    .replace(R.id.main_container, SummaryFragment.newInstance(event.getId()))
-                    .addToBackStack(null)
-                    .commit();
+            List<ExpenseItem> items = repository.getExpenseItemsForEvent(event.getId());
+            if (items.isEmpty()) {
+                getParentFragmentManager().beginTransaction()
+                        .replace(R.id.main_container, AddReceiptItemsFragment.newInstance(event.getGroupId(), event.getId()))
+                        .addToBackStack(null)
+                        .commit();
+            } else {
+                Map<Long, List<ItemAssignment>> assignments = repository.getAssignmentsByItem(event.getId());
+                List<Receipt> receipts = repository.getReceipts(event.getId());
+                Map<Long, SplitCalculator.PersonTotal> totals = SplitCalculator.calculateTotals(items, assignments, receipts);
+                double grandTotal = 0;
+                for (SplitCalculator.PersonTotal pt : totals.values()) grandTotal += pt.getTotal();
+
+                double savedBillTotal = 0;
+                if (!receipts.isEmpty()) savedBillTotal = receipts.get(0).getServiceCharge();
+
+                if (Math.abs(grandTotal - savedBillTotal) < 0.01 && savedBillTotal > 0) {
+                    getParentFragmentManager().beginTransaction()
+                            .replace(R.id.main_container, SummaryFragment.newInstance(event.getId()))
+                            .addToBackStack(null)
+                            .commit();
+                } else {
+                    getParentFragmentManager().beginTransaction()
+                            .replace(R.id.main_container, AddReceiptItemsFragment.newInstance(event.getGroupId(), event.getId()))
+                            .addToBackStack(null)
+                            .commit();
+                }
+            }
         }, null);
         recyclerView.setAdapter(adapter);
 
         editSearch = view.findViewById(R.id.edit_search_history);
-        chipGroupFilters = view.findViewById(R.id.chip_group_filters);
-
         editSearch.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -72,8 +93,6 @@ public class HistoryFragment extends Fragment {
                 filterEvents();
             }
         });
-
-        chipGroupFilters.setOnCheckedStateChangeListener((group, checkedIds) -> filterEvents());
 
         loadHistory();
     }
@@ -118,10 +137,10 @@ public class HistoryFragment extends Fragment {
                     }
                 }
                 if (myId != -1) {
-                    long payerId = event.getPaidByParticipantId();
-                    if (payerId == -1 && !participants.isEmpty()) payerId = participants.get(0).getId();
-                    Map<Long, Double> paidMap = new HashMap<>();
-                    if (payerId != -1) paidMap.put(payerId, grandTotal);
+                    Map<Long, Double> paidMap = repository.getPayments(event.getId());
+                    if (paidMap.isEmpty() && !participants.isEmpty()) {
+                        paidMap.put(participants.get(0).getId(), grandTotal);
+                    }
                     List<SplitCalculator.Settlement> settlements = SplitCalculator.calculateSettlements(totals, paidMap);
                     double myBalance = 0;
                     for (SplitCalculator.Settlement s : settlements) {
@@ -134,6 +153,15 @@ public class HistoryFragment extends Fragment {
                 }
             }
         }
-        adapter.setEvents(filtered, eventTotals, userBalances, null);
+
+        Map<Long, Boolean> unpaidMap = new HashMap<>();
+        for (Event e : filtered) {
+            unpaidMap.put(e.getId(), repository.hasUnpaidSettlements(e.getId()));
+        }
+        Map<Long, Boolean> incompleteMap = new HashMap<>();
+        for (Event e : filtered) {
+            incompleteMap.put(e.getId(), repository.isEventIncomplete(e.getId()));
+        }
+        adapter.setEvents(filtered, eventTotals, userBalances, unpaidMap, incompleteMap);
     }
 }

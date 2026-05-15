@@ -4,30 +4,36 @@ public class Group {
     private long id;
     private String name;
     private String category;
+    private boolean pinned;
 
-    // ---------------
-    // Group
     public Group(long id, String name, String category) {
+        this(id, name, category, false);
+    }
+
+    public Group(long id, String name, String category, boolean pinned) {
         this.id = id;
         this.name = name;
         this.category = category;
+        this.pinned = pinned;
     }
 
-    // ---------------
-    // getId
     public long getId() {
         return id;
     }
 
-    // ---------------
-    // getName
     public String getName() {
         return name;
     }
 
-    // ---------------
-    // getCategory
     public String getCategory() {
         return category;
+    }
+
+    public boolean isPinned() {
+        return pinned;
+    }
+
+    public void setPinned(boolean pinned) {
+        this.pinned = pinned;
     }
 }

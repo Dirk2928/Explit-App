@@ -12,82 +12,110 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Pending Payments"
-            android:textColor="@color/text_dark"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/text_no_pending"
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Explit.CardView"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Everyone has paid. No pending payments."
-            android:textColor="@color/text_light"
-            android:textSize="14sp"
-            android:gravity="center"
-            android:visibility="gone" />
+            android:layout_height="wrap_content">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler_pending_payments"
-            android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:layout_marginTop="8dp"
-            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/recent_outings"
-            android:textColor="@color/text_dark"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler_recent_outings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal"
-            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/your_groups"
-                android:textColor="@color/text_dark"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                android:orientation="vertical"
+                android:padding="12dp">
 
-            <TextView
-                android:id="@+id/text_see_all_groups"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="See All"
-                android:textColor="@color/primary"
-                android:textSize="14sp" />
-        </LinearLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Pending Payments"
+                    android:textColor="@color/text_dark"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recycler_groups"
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recycler_pending_payments"
+                    android:layout_width="match_parent"
+                    android:layout_height="200dp"
+                    android:layout_marginTop="8dp"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Explit.CardView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:nestedScrollingEnabled="false"
-            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+            android:layout_marginTop="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/recent_outings"
+                    android:textColor="@color/text_dark"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recycler_recent_outings"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:nestedScrollingEnabled="false"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Explit.CardView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/your_groups"
+                        android:textColor="@color/text_dark"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/text_see_all_groups"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="See All"
+                        android:textColor="@color/primary"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recycler_groups"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:nestedScrollingEnabled="false"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

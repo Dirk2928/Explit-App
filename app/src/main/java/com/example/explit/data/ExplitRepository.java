@@ -26,21 +26,29 @@ public class ExplitRepository {
         this.dbHelper = new ExplitDbHelper(context.getApplicationContext());
     }
 
+    private void updateGroupLastModified(long groupId) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("last_modified", System.currentTimeMillis());
+        db.update("groups", values, "id=?", new String[]{String.valueOf(groupId)});
+    }
+
     public long createGroup(String name, String category) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put("name", name);
         values.put("category", category);
+        values.put("last_modified", System.currentTimeMillis());
         return db.insert("groups", null, values);
     }
 
     public List<Group> getGroups() {
         List<Group> groups = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT id, name, category FROM groups ORDER BY id DESC", null);
+        Cursor cursor = db.rawQuery("SELECT id, name, category, pinned FROM groups ORDER BY id DESC", null);
         try {
             while (cursor.moveToNext()) {
-                groups.add(new Group(cursor.getLong(0), cursor.getString(1), cursor.getString(2)));
+                groups.add(new Group(cursor.getLong(0), cursor.getString(1), cursor.getString(2), cursor.getInt(3) == 1));
             }
         } finally {
             cursor.close();
@@ -68,7 +76,9 @@ public class ExplitRepository {
         values.put("group_id", groupId);
         values.put("name", name);
         values.put("nickname", nickname);
-        return db.insert("participants", null, values);
+        long result = db.insert("participants", null, values);
+        updateGroupLastModified(groupId);
+        return result;
     }
 
     public List<Participant> getParticipants(long groupId) {
@@ -92,7 +102,10 @@ public class ExplitRepository {
         values.put("name", name);
         values.put("currency", currency);
         values.put("paid_by_participant_id", paidByParticipantId);
-        return db.insert("events", null, values);
+        values.put("last_modified", System.currentTimeMillis());
+        long result = db.insert("events", null, values);
+        updateGroupLastModified(groupId);
+        return result;
     }
 
     public void addEventParticipant(long eventId, long participantId, String name, String nickname) {
@@ -139,10 +152,10 @@ public class ExplitRepository {
     public List<Event> getAllEvents() {
         List<Event> events = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT id, group_id, name, currency, paid_by_participant_id FROM events ORDER BY id DESC", null);
+        Cursor cursor = db.rawQuery("SELECT id, group_id, name, currency, paid_by_participant_id, last_modified FROM events ORDER BY id DESC", null);
         try {
             while (cursor.moveToNext()) {
-                events.add(new Event(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getString(3), cursor.getLong(4)));
+                events.add(new Event(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getString(3), cursor.getLong(4), cursor.getLong(5)));
             }
         } finally {
             cursor.close();
@@ -153,10 +166,10 @@ public class ExplitRepository {
     public List<Event> getEventsByGroup(long groupId) {
         List<Event> events = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT id, group_id, name, currency, paid_by_participant_id FROM events WHERE group_id=? ORDER BY id DESC", new String[]{String.valueOf(groupId)});
+        Cursor cursor = db.rawQuery("SELECT id, group_id, name, currency, paid_by_participant_id, last_modified FROM events WHERE group_id=? ORDER BY id DESC", new String[]{String.valueOf(groupId)});
         try {
             while (cursor.moveToNext()) {
-                events.add(new Event(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getString(3), cursor.getLong(4)));
+                events.add(new Event(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getString(3), cursor.getLong(4), cursor.getLong(5)));
             }
         } finally {
             cursor.close();
@@ -166,10 +179,10 @@ public class ExplitRepository {
 
     public Event getEvent(long eventId) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT id, group_id, name, currency, paid_by_participant_id FROM events WHERE id=?", new String[]{String.valueOf(eventId)});
+        Cursor cursor = db.rawQuery("SELECT id, group_id, name, currency, paid_by_participant_id, last_modified FROM events WHERE id=?", new String[]{String.valueOf(eventId)});
         try {
             if (cursor.moveToFirst()) {
-                return new Event(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getString(3), cursor.getLong(4));
+                return new Event(cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getString(3), cursor.getLong(4), cursor.getLong(5));
             }
         } finally {
             cursor.close();
@@ -183,6 +196,7 @@ public class ExplitRepository {
         values.put("name", name);
         values.put("currency", currency);
         values.put("paid_by_participant_id", paidByParticipantId);
+        values.put("last_modified", System.currentTimeMillis());
         db.update("events", values, "id=?", new String[]{String.valueOf(eventId)});
     }
 
@@ -313,16 +327,14 @@ public class ExplitRepository {
         return map;
     }
 
-    // ---- Settlement Status ----
-
     public void saveSettlements(long eventId, List<SplitCalculator.Settlement> settlements) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         db.beginTransaction();
         try {
-            Map<String, Integer> existingPaid = new HashMap<>();
+            Map<String, Double> existingPaid = new HashMap<>();
             Cursor cursor = db.rawQuery("SELECT from_id, to_id, paid FROM settlement_status WHERE event_id=?", new String[]{String.valueOf(eventId)});
             while (cursor.moveToNext()) {
-                existingPaid.put(cursor.getLong(0) + "_" + cursor.getLong(1), cursor.getInt(2));
+                existingPaid.put(cursor.getLong(0) + "_" + cursor.getLong(1), cursor.getDouble(2));
             }
             cursor.close();
 
@@ -334,7 +346,7 @@ public class ExplitRepository {
                 values.put("to_id", s.toId);
                 values.put("amount", s.amount);
                 String key = s.fromId + "_" + s.toId;
-                values.put("paid", existingPaid.getOrDefault(key, 0));
+                values.put("paid", existingPaid.getOrDefault(key, 0.0));
                 db.insert("settlement_status", null, values);
             }
             db.setTransactionSuccessful();
@@ -343,19 +355,21 @@ public class ExplitRepository {
         }
     }
 
-    public void setSettlementPaid(long eventId, long fromId, long toId, boolean paid) {
+    public void setSettlementPaid(long eventId, long fromId, long toId, double paidAmount) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
-        values.put("paid", paid ? 1 : 0);
+        values.put("paid", paidAmount);
         db.update("settlement_status", values, "event_id=? AND from_id=? AND to_id=?", new String[]{String.valueOf(eventId), String.valueOf(fromId), String.valueOf(toId)});
     }
+
 
     public List<SettlementStatus> getUnpaidSettlements() {
         List<SettlementStatus> list = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT ss.event_id, ss.from_id, ss.to_id, ss.amount, e.name as event_name, e.group_id, g.name as group_name " +
-                "FROM settlement_status ss JOIN events e ON ss.event_id = e.id JOIN groups g ON e.group_id = g.id " +
-                "WHERE ss.paid = 0 ORDER BY e.id DESC", null);
+        Cursor cursor = db.rawQuery(
+                "SELECT ss.event_id, ss.from_id, ss.to_id, (ss.amount - ss.paid), e.name as event_name, e.group_id, g.name as group_name " +
+                        "FROM settlement_status ss JOIN events e ON ss.event_id = e.id JOIN groups g ON e.group_id = g.id " +
+                        "WHERE ss.paid < ss.amount AND (ss.amount - ss.paid) > 0.005 ORDER BY e.id DESC", null);
         try {
             while (cursor.moveToNext()) {
                 list.add(new SettlementStatus(cursor.getLong(0), cursor.getLong(1), cursor.getLong(2), cursor.getDouble(3), cursor.getString(4), cursor.getLong(5), cursor.getString(6)));
@@ -365,14 +379,13 @@ public class ExplitRepository {
         }
         return list;
     }
-
-    public Map<String, Integer> getSettlementPaidStatus(long eventId) {
-        Map<String, Integer> map = new HashMap<>();
+    public Map<String, Double> getSettlementPaidStatus(long eventId) {
+        Map<String, Double> map = new HashMap<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
         Cursor cursor = db.rawQuery("SELECT from_id, to_id, paid FROM settlement_status WHERE event_id=?", new String[]{String.valueOf(eventId)});
         try {
             while (cursor.moveToNext()) {
-                map.put(cursor.getLong(0) + "_" + cursor.getLong(1), cursor.getInt(2));
+                map.put(cursor.getLong(0) + "_" + cursor.getLong(1), cursor.getDouble(2));
             }
         } finally {
             cursor.close();
@@ -382,7 +395,7 @@ public class ExplitRepository {
 
     public boolean hasUnpaidSettlements(long eventId) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM settlement_status WHERE event_id=? AND paid=0", new String[]{String.valueOf(eventId)});
+        Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM settlement_status WHERE event_id=? AND paid < amount AND (amount - paid) > 0.005", new String[]{String.valueOf(eventId)});
         try {
             if (cursor.moveToFirst()) return cursor.getInt(0) > 0;
         } finally {
@@ -390,15 +403,95 @@ public class ExplitRepository {
         }
         return false;
     }
-
     public boolean groupHasUnpaidSettlements(long groupId) {
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM settlement_status ss JOIN events e ON ss.event_id = e.id WHERE e.group_id=? AND ss.paid=0", new String[]{String.valueOf(groupId)});
+        Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM settlement_status ss JOIN events e ON ss.event_id = e.id WHERE e.group_id=? AND ss.paid < ss.amount AND (ss.amount - ss.paid) > 0.005", new String[]{String.valueOf(groupId)});
         try {
             if (cursor.moveToFirst()) return cursor.getInt(0) > 0;
         } finally {
             cursor.close();
         }
         return false;
+    }
+    public void setGroupPinned(long groupId, boolean pinned) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("pinned", pinned ? 1 : 0);
+        db.update("groups", values, "id=?", new String[]{String.valueOf(groupId)});
+    }
+
+    public List<Group> getPinnedGroups() {
+        List<Group> groups = new ArrayList<>();
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT id, name, category, pinned FROM groups WHERE pinned = 1 ORDER BY id DESC", null);
+        try {
+            while (cursor.moveToNext()) {
+                groups.add(new Group(cursor.getLong(0), cursor.getString(1), cursor.getString(2), true));
+            }
+        } finally {
+            cursor.close();
+        }
+        return groups;
+    }
+
+    public List<Group> getRecentGroups(int limit) {
+        List<Group> groups = new ArrayList<>();
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT id, name, category, pinned FROM groups ORDER BY last_modified DESC LIMIT ?", new String[]{String.valueOf(limit)});
+        try {
+            while (cursor.moveToNext()) {
+                groups.add(new Group(cursor.getLong(0), cursor.getString(1), cursor.getString(2), cursor.getInt(3) == 1));
+            }
+        } finally {
+            cursor.close();
+        }
+        return groups;
+    }
+    public boolean isEventIncomplete(long eventId) {
+        List<ExpenseItem> items = getExpenseItemsForEvent(eventId);
+        if (items.isEmpty()) return true;
+
+        Map<Long, List<ItemAssignment>> assignments = getAssignmentsByItem(eventId);
+        List<Receipt> receipts = getReceipts(eventId);
+        Map<Long, SplitCalculator.PersonTotal> totals = SplitCalculator.calculateTotals(items, assignments, receipts);
+        double grandTotal = 0;
+        for (SplitCalculator.PersonTotal pt : totals.values()) grandTotal += pt.getTotal();
+
+        double savedBillTotal = 0;
+        if (!receipts.isEmpty()) savedBillTotal = receipts.get(0).getServiceCharge();
+
+        return Math.abs(grandTotal - savedBillTotal) > 0.01 || savedBillTotal == 0;
+    }
+    public boolean groupHasIncompleteEvents(long groupId) {
+        List<Event> events = getEventsByGroup(groupId);
+        for (Event e : events) {
+            if (isEventIncomplete(e.getId())) return true;
+        }
+        return false;
+    }
+    public void savePayments(long eventId, Map<Long, Double> paidMap) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        db.delete("payments", "event_id=?", new String[]{String.valueOf(eventId)});
+        for (Map.Entry<Long, Double> entry : paidMap.entrySet()) {
+            ContentValues values = new ContentValues();
+            values.put("event_id", eventId);
+            values.put("participant_id", entry.getKey());
+            values.put("amount", entry.getValue());
+            db.insert("payments", null, values);
+        }
+    }
+
+    public Map<Long, Double> getPayments(long eventId) {
+        Map<Long, Double> payments = new HashMap<>();
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT participant_id, amount FROM payments WHERE event_id=?", new String[]{String.valueOf(eventId)});
+        try {
+            while (cursor.moveToNext()) {
+                payments.put(cursor.getLong(0), cursor.getDouble(1));
+            }
+        } finally {
+            cursor.close();
+        }
+        return payments;
     }
 }

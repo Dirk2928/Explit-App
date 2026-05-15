@@ -7,8 +7,8 @@ import android.os.Environment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.ImageView;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -25,7 +25,9 @@ import com.example.explit.model.ExpenseItem;
 import com.example.explit.model.ItemAssignment;
 import com.example.explit.model.Participant;
 import com.example.explit.model.Receipt;
+import com.example.explit.util.CurrencyHelper;
 import com.example.explit.util.SplitCalculator;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -103,9 +105,53 @@ public class SummaryFragment extends Fragment {
         });
     }
 
-    private Map<String, Integer> loadPaidStatus() {
+    private Map<String, Double> loadPaidStatus() {
         return repository.getSettlementPaidStatus(eventId);
     }
+
+    private void showPaymentDialog(long fromId, long toId, double totalAmount, double paidSoFar, Map<Long, String> names) {
+        String fromName = names.getOrDefault(fromId, "Person");
+        String toName = names.getOrDefault(toId, "Person");
+
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, pad, pad, pad);
+
+        TextView info = new TextView(requireContext());
+        info.setText(fromName + " pays " + toName + "\nTotal: ₱" + String.format("%.2f", totalAmount) + "\nPaid so far: ₱" + String.format("%.2f", paidSoFar) + "\nRemaining: ₱" + String.format("%.2f", totalAmount - paidSoFar));
+        layout.addView(info);
+
+        EditText input = new EditText(requireContext());
+        input.setHint("Amount to pay now");
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        layout.addView(input);
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Record Payment")
+                .setView(layout)
+                .setPositiveButton("Pay", (dialog, which) -> {
+                    String amtStr = input.getText().toString().trim();
+                    if (!amtStr.isEmpty()) {
+                        double newPayment = Double.parseDouble(amtStr);
+                        if (newPayment > totalAmount - paidSoFar) {
+                            Toast.makeText(getContext(), "Amount exceeds remaining balance", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        double newTotal = paidSoFar + newPayment;
+                        repository.setSettlementPaid(eventId, fromId, toId, newTotal);
+                        Event event = repository.getEvent(eventId);
+                        if (event != null) {
+                            repository.updateEvent(eventId, event.getName(), event.getCurrency(), event.getPaidByParticipantId());
+                        }
+                        calculateAndDisplay();
+                        Toast.makeText(getContext(), "Payment recorded", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
     private void calculateAndDisplay() {
         Event event = repository.getEvent(eventId);
         if (event == null) return;
@@ -127,9 +173,17 @@ public class SummaryFragment extends Fragment {
             grandTotal += pt.getTotal();
         }
         textTotalBill.setText(String.format("₱%.2f", grandTotal));
+        if (CurrencyHelper.shouldRound(requireContext())) {
+            grandTotal = Math.floor(grandTotal);
+            textTotalBill.setText(String.format("₱%.0f", grandTotal));
+            Map<Long, SplitCalculator.PersonTotal> roundedTotals = new HashMap<>();
+            for (Map.Entry<Long, SplitCalculator.PersonTotal> entry : totals.entrySet()) {
+                double rounded = Math.floor(entry.getValue().getTotal());
+                roundedTotals.put(entry.getKey(), new SplitCalculator.PersonTotal(rounded, 0));
+            }
+            totals = roundedTotals;
+        }
 
-        // Show receipt photo if any
-// Show receipt photos if any
         List<String> allPhotos = new ArrayList<>();
         for (Receipt r : receipts) {
             if (r.getPhotoPath() != null && !r.getPhotoPath().isEmpty()) {
@@ -141,7 +195,6 @@ public class SummaryFragment extends Fragment {
         }
 
         if (!allPhotos.isEmpty()) {
-            // Show first photo as thumbnail
             imageReceipt.setVisibility(View.VISIBLE);
             try {
                 Uri photoUri = Uri.parse(allPhotos.get(0));
@@ -153,12 +206,10 @@ public class SummaryFragment extends Fragment {
                 }
             }
 
-            // Click to show all photos in a dialog
             imageReceipt.setOnClickListener(v -> {
                 if (allPhotos.size() == 1) {
                     showFullImage(allPhotos.get(0));
                 } else {
-                    // Show list of photos
                     String[] photoItems = new String[allPhotos.size()];
                     for (int i = 0; i < allPhotos.size(); i++) photoItems[i] = "Receipt Photo " + (i + 1);
                     new MaterialAlertDialogBuilder(requireContext())
@@ -170,13 +221,10 @@ public class SummaryFragment extends Fragment {
             });
         }
 
-        personAdapter.setData(participants, totals);
+        personAdapter.setData(participants, totals, requireContext());
 
-        long payerId = event.getPaidByParticipantId();
-        Map<Long, Double> paidMap = new HashMap<>();
-        if (payerId != -1) {
-            paidMap.put(payerId, grandTotal);
-        } else if (!participants.isEmpty()) {
+        Map<Long, Double> paidMap = repository.getPayments(eventId);
+        if (paidMap.isEmpty() && !participants.isEmpty()) {
             paidMap.put(participants.get(0).getId(), grandTotal);
         }
 
@@ -184,12 +232,12 @@ public class SummaryFragment extends Fragment {
         Map<Long, String> names = new HashMap<>();
         for (Participant p : participants) names.put(p.getId(), p.getDisplayName());
 
-        Map<String, Integer> paidStatus = loadPaidStatus();
-        settlementAdapter.setData(settlements, names, paidStatus, (fromId, toId, paid) -> {
-            repository.setSettlementPaid(eventId, fromId, toId, paid);
-        });
-        // Save settlements to DB
         repository.saveSettlements(eventId, settlements);
+        Map<String, Double> paidStatus = loadPaidStatus();
+        settlementAdapter.setData(settlements, names, paidStatus, (fromId, toId, totalAmount, paidSoFar) -> {
+            showPaymentDialog(fromId, toId, totalAmount, paidSoFar, names);
+        }, requireContext());
+
         cachedSummaryContent = buildSummaryString();
     }
 
@@ -209,10 +257,10 @@ public class SummaryFragment extends Fragment {
             double grandTotal = 0;
             for (SplitCalculator.PersonTotal pt : totals.values()) grandTotal += pt.getTotal();
 
-            long payerId = event.getPaidByParticipantId();
-            if (payerId == -1 && !participants.isEmpty()) payerId = participants.get(0).getId();
-            Map<Long, Double> paidMap = new HashMap<>();
-            if (payerId != -1) paidMap.put(payerId, grandTotal);
+            Map<Long, Double> paidMap = repository.getPayments(eventId);
+            if (paidMap.isEmpty() && !participants.isEmpty()) {
+                paidMap.put(participants.get(0).getId(), grandTotal);
+            }
 
             List<SplitCalculator.Settlement> settlements = SplitCalculator.calculateSettlements(totals, paidMap);
             Map<Long, String> names = new HashMap<>();

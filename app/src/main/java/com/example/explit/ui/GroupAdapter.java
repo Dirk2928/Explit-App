@@ -59,15 +59,24 @@ public class GroupAdapter extends RecyclerView.Adapter<GroupAdapter.GroupViewHol
     public void onBindViewHolder(@NonNull GroupViewHolder holder, int position) {
         Group group = groups.get(position);
         holder.name.setText(group.getName());
-        holder.category.setText(group.getCategory());
+        if (group.isPinned()) {
+            holder.category.setText("📌 " + group.getCategory());
+        } else {
+            holder.category.setText(group.getCategory());
+        }
         holder.itemView.setOnClickListener(v -> listener.onGroupClick(group));
         holder.itemView.setOnLongClickListener(v -> {
             longClickListener.onGroupLongClick(group);
             return true;
         });
 
-        if (unpaidMap.containsKey(group.getId()) && unpaidMap.get(group.getId())) {
-            holder.itemView.setBackgroundColor(0xFFFFEBEE);
+        if (unpaidMap.containsKey(group.getId())) {
+            Boolean status = unpaidMap.get(group.getId());
+            if (status == null || !status) {
+                holder.itemView.setBackgroundColor(0xFFFFEBEE);
+            } else {
+                holder.itemView.setBackgroundColor(0xFFFFFDE7);
+            }
         } else {
             holder.itemView.setBackgroundColor(0xFFFFFFFF);
         }

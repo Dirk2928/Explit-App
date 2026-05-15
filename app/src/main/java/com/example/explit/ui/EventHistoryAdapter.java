@@ -23,6 +23,7 @@ public class EventHistoryAdapter extends RecyclerView.Adapter<EventHistoryAdapte
     private final OnEventClickListener listener;
     private final OnEventLongClickListener longClickListener;
     private final Map<Long, Boolean> unpaidMap = new HashMap<>();
+    private final Map<Long, Boolean> incompleteMap = new HashMap<>();
 
     public interface OnEventClickListener {
         void onClick(Event event);
@@ -36,8 +37,9 @@ public class EventHistoryAdapter extends RecyclerView.Adapter<EventHistoryAdapte
         this.longClickListener = longClickListener;
     }
 
-    public void setEvents(List<Event> list, Map<Long, String> eventTotals, Map<Long, String> userBalances, Map<Long, Boolean> unpaidStatus) {
-        unpaidMap.clear();
+    public void setEvents(List<Event> list, Map<Long, String> eventTotals, Map<Long, String> userBalances, Map<Long, Boolean> unpaidStatus, Map<Long, Boolean> incompleteStatus) {
+        incompleteMap.clear();
+        if (incompleteStatus != null) incompleteMap.putAll(incompleteStatus);        unpaidMap.clear();
         if (unpaidStatus != null) unpaidMap.putAll(unpaidStatus);
         events.clear();
         events.addAll(list);
@@ -59,11 +61,16 @@ public class EventHistoryAdapter extends RecyclerView.Adapter<EventHistoryAdapte
     public void onBindViewHolder(@NonNull HistoryViewHolder holder, int position) {
         Event event = events.get(position);
         holder.name.setText(event.getName());
-        holder.meta.setText("Currency: " + event.getCurrency());
-        
+        if (event.getLastModified() > 0) {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MMM dd, yyyy hh:mm a", java.util.Locale.getDefault());
+            holder.meta.setText(sdf.format(new java.util.Date(event.getLastModified())));
+        } else {
+            holder.meta.setText(event.getCurrency());
+        }
+
         String total = totals.get(event.getId());
         holder.total.setText(total != null ? total : "₱0.00");
-        
+
         String balance = balances.get(event.getId());
         if (balance != null && !balance.isEmpty()) {
             holder.balance.setVisibility(View.VISIBLE);
@@ -80,9 +87,11 @@ public class EventHistoryAdapter extends RecyclerView.Adapter<EventHistoryAdapte
             return true;
         });
         if (unpaidMap.containsKey(event.getId()) && unpaidMap.get(event.getId())) {
-            holder.itemView.setBackgroundColor(0xFFFFEBEE); // light red
+            holder.itemView.setBackgroundColor(0xFFFFEBEE);
+        } else if (incompleteMap.containsKey(event.getId()) && incompleteMap.get(event.getId())) {
+            holder.itemView.setBackgroundColor(0xFFFFFDE7);
         } else {
-            holder.itemView.setBackgroundColor(0xFFFFFFFF); // white
+            holder.itemView.setBackgroundColor(0xFFFFFFFF);
         }
     }
 

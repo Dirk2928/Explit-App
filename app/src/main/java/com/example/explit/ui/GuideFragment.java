@@ -15,32 +15,32 @@ import androidx.fragment.app.Fragment;
 
 import com.example.explit.R;
 
-public class ProfileFragment extends Fragment {
+public class GuideFragment extends Fragment {
 
     private SharedPreferences prefs;
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_profile, container, false);
+        return inflater.inflate(R.layout.fragment_guide, container, false);
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
         prefs = requireContext().getSharedPreferences("explit_prefs", Context.MODE_PRIVATE);
-        String userName = prefs.getString("user_name", "User");
 
-        TextView initialsView = view.findViewById(R.id.text_profile_initials);
-        TextView nameView = view.findViewById(R.id.text_profile_name);
+        View conversionRow = view.findViewById(R.id.row_conversion);
+        TextView conversionValue = view.findViewById(R.id.text_conversion_value);
 
-        String initial = userName.isEmpty() ? "U" : userName.substring(0, 1).toUpperCase();
-        initialsView.setText(initial);
-        nameView.setText(userName);
+        boolean roundDecimals = prefs.getBoolean("round_decimals", false);
+        conversionValue.setText(roundDecimals ? "Round Whole" : "Keep Decimals");
 
-        view.findViewById(R.id.button_clear_history).setOnClickListener(v -> {
-            Toast.makeText(getContext(), "Feature coming soon", Toast.LENGTH_SHORT).show();
+        conversionRow.setOnClickListener(v -> {
+            boolean current = prefs.getBoolean("round_decimals", false);
+            prefs.edit().putBoolean("round_decimals", !current).apply();
+            conversionValue.setText(!current ? "Round Whole" : "Keep Decimals");
+            Toast.makeText(getContext(), !current ? "Switched to Whole Numbers" : "Switched to Keep Decimals", Toast.LENGTH_SHORT).show();
         });
     }
 }

@@ -10,12 +10,14 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
 
+    private BottomNavigationView bottomNav;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setOnItemSelectedListener(item -> {
             Fragment selectedFragment = null;
             int itemId = item.getItemId();
@@ -26,8 +28,8 @@ public class MainActivity extends AppCompatActivity {
                 selectedFragment = EventDetailFragment.newInstance(-1, -1);
             } else if (itemId == R.id.nav_history) {
                 selectedFragment = new HistoryFragment();
-            } else if (itemId == R.id.nav_profile) {
-                selectedFragment = new ProfileFragment();
+            } else if (itemId == R.id.nav_guide) {
+                selectedFragment = new GuideFragment();
             }
 
             if (selectedFragment != null) {
@@ -41,5 +43,9 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState == null) {
             bottomNav.setSelectedItemId(R.id.nav_home);
         }
+    }
+
+    public void setNavSelected(int itemId) {
+        bottomNav.setSelectedItemId(itemId);
     }
 }

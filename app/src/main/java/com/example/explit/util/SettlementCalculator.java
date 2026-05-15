@@ -13,35 +13,25 @@ public class SettlementCalculator {
         private final long toParticipantId;
         private final double amount;
 
-        // ---------------
-        // Payment
         public Payment(long fromParticipantId, long toParticipantId, double amount) {
             this.fromParticipantId = fromParticipantId;
             this.toParticipantId = toParticipantId;
             this.amount = amount;
         }
 
-        // ---------------
-        // getFromParticipantId
         public long getFromParticipantId() {
             return fromParticipantId;
         }
 
-        // ---------------
-        // getToParticipantId
         public long getToParticipantId() {
             return toParticipantId;
         }
 
-        // ---------------
-        // getAmount
         public double getAmount() {
             return amount;
         }
     }
 
-    // ---------------
-    // minimizeTransactions
     public static List<Payment> minimizeTransactions(Map<Long, Double> netBalances) {
         List<Map.Entry<Long, Double>> debtors = new ArrayList<>();
         List<Map.Entry<Long, Double>> creditors = new ArrayList<>();
@@ -81,8 +71,6 @@ public class SettlementCalculator {
         return settlements;
     }
 
-    // ---------------
-    // buildNetBalances
     public static Map<Long, Double> buildNetBalances(Map<Long, SplitCalculator.PersonTotal> owes, Map<Long, Double> paid) {
         Map<Long, Double> net = new HashMap<>();
         for (Map.Entry<Long, SplitCalculator.PersonTotal> entry : owes.entrySet()) {

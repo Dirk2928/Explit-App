@@ -14,9 +14,7 @@ import com.example.explit.model.Participant;
 import com.example.explit.model.SettlementStatus;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class PendingPaymentAdapter extends RecyclerView.Adapter<PendingPaymentAdapter.ViewHolder> {
 

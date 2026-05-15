@@ -9,6 +9,10 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.database.sqlite.SQLiteDatabase;
+import android.content.ContentValues;
+import com.example.explit.data.ExplitDbHelper;
+
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -25,11 +29,13 @@ import com.example.explit.model.ExpenseItem;
 import com.example.explit.model.ItemAssignment;
 import com.example.explit.model.Participant;
 import com.example.explit.model.Receipt;
+import com.example.explit.util.CurrencyHelper;
 import com.example.explit.util.SplitCalculator;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,7 +46,7 @@ public class AddReceiptItemsFragment extends Fragment {
     private long groupId;
     private long eventId = -1;
     private long receiptId = -1;
-    private long payerId = -1;
+    private Map<Long, Double> payerMap = new HashMap<>();
 
     private ExplitRepository repository;
     private ExpenseItemAdapter adapter;
@@ -49,11 +55,14 @@ public class AddReceiptItemsFragment extends Fragment {
     private MaterialButton buttonSelectPayer;
     private RecyclerView recyclerItems;
 
-    private final ActivityResultLauncher<String> photoPickerLauncher = registerForActivityResult(
-            new ActivityResultContracts.GetContent(),
-            uri -> {
-                if (uri != null) {
-                    saveReceiptPhoto(uri);
+    private final ActivityResultLauncher<String[]> photoPickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.OpenMultipleDocuments(),
+            uris -> {
+                if (uris != null && !uris.isEmpty()) {
+                    for (Uri uri : uris) {
+                        saveReceiptPhoto(uri);
+                    }
+                    Toast.makeText(getContext(), uris.size() + " photos added", Toast.LENGTH_SHORT).show();
                 }
             }
     );
@@ -91,18 +100,65 @@ public class AddReceiptItemsFragment extends Fragment {
         buttonSelectPayer = view.findViewById(R.id.button_select_payer);
         recyclerItems = view.findViewById(R.id.recycler_items);
         editTotalBill = view.findViewById(R.id.edit_total_bill);
+        editTotalBill.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(android.text.Editable s) {
+                updatePayerButtonState();
+            }
+        });
 
         adapter = new ExpenseItemAdapter(this::showItemActions);
         recyclerItems.setLayoutManager(new LinearLayoutManager(requireContext()));
         recyclerItems.setAdapter(adapter);
 
         initializeEventAndReceipt();
+        updatePayerButtonState();
 
         buttonSelectPayer.setOnClickListener(v -> showPayerDialog());
         view.findViewById(R.id.button_add_item).setOnClickListener(v -> showAddItemDialog());
 
         view.findViewById(R.id.button_add_photo).setOnClickListener(v -> {
-            photoPickerLauncher.launch("image/*");
+            List<Receipt> receipts = repository.getReceipts(eventId);
+            String photoPath = "";
+            if (!receipts.isEmpty()) {
+                photoPath = receipts.get(0).getPhotoPath();
+            }
+
+            if (photoPath != null && !photoPath.isEmpty()) {
+                String[] photos = photoPath.split(",");
+                String[] items = new String[photos.length + 1];
+                for (int i = 0; i < photos.length; i++) {
+                    items[i] = "Photo " + (i + 1) + " (tap to delete)";
+                }
+                items[photos.length] = "Add New Photo";
+
+                new MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Receipt Photos (" + photos.length + ")")
+                        .setItems(items, (dialog, which) -> {
+                            if (which == photos.length) {
+                                photoPickerLauncher.launch(new String[]{"image/*"});                            } else {
+                                StringBuilder newPath = new StringBuilder();
+                                for (int i = 0; i < photos.length; i++) {
+                                    if (i != which) {
+                                        if (newPath.length() > 0) newPath.append(",");
+                                        newPath.append(photos[i].trim());
+                                    }
+                                }
+                                repository.updateReceiptPhoto(receiptId, newPath.toString());
+                                MaterialButton btnPhoto = getView().findViewById(R.id.button_add_photo);
+                                if (newPath.length() == 0) {
+                                    btnPhoto.setText("Add Receipt Photo");
+                                } else {
+                                    btnPhoto.setText("Receipts Attached ✅");
+                                }
+                                Toast.makeText(getContext(), "Photo removed", Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .show();
+            } else {
+                photoPickerLauncher.launch(new String[]{"image/*"});
+            }
         });
 
         view.findViewById(R.id.button_calculate).setOnClickListener(v -> {
@@ -136,6 +192,15 @@ public class AddReceiptItemsFragment extends Fragment {
         loadItems();
     }
 
+    private void updatePayerButtonState() {
+        double billTotal = parseDouble(editTotalBill.getText().toString().trim());
+        buttonSelectPayer.setEnabled(billTotal > 0);
+        if (billTotal == 0) {
+            buttonSelectPayer.setText("Enter bill total first");
+        } else if (payerMap.isEmpty()) {
+            buttonSelectPayer.setText("Select Payer");
+        }
+    }
     private void initializeEventAndReceipt() {
         if (eventId == -1) {
             List<Event> events = repository.getEventsByGroup(groupId);
@@ -147,9 +212,7 @@ public class AddReceiptItemsFragment extends Fragment {
         }
 
         Event event = repository.getEvent(eventId);
-        if (event != null) {
-            payerId = event.getPaidByParticipantId();
-        }
+        payerMap = repository.getPayments(eventId);
         updatePayerButtonText();
 
         List<Receipt> receipts = repository.getReceipts(eventId);
@@ -158,6 +221,10 @@ public class AddReceiptItemsFragment extends Fragment {
         } else {
             receiptId = receipts.get(0).getId();
             Receipt r = receipts.get(0);
+            double savedBillTotal = r.getServiceCharge();
+            if (savedBillTotal > 0) {
+                editTotalBill.setText(String.valueOf(savedBillTotal));
+            }
             if (r.getPhotoPath() != null && !r.getPhotoPath().isEmpty()) {
                 MaterialButton btnPhoto = getView().findViewById(R.id.button_add_photo);
                 btnPhoto.setText("Receipts Attached ✅");
@@ -187,35 +254,103 @@ public class AddReceiptItemsFragment extends Fragment {
             Toast.makeText(getContext(), "No participants in this event", Toast.LENGTH_SHORT).show();
             return;
         }
+
         String[] names = new String[participants.size()];
-        for (int i = 0; i < participants.size(); i++) names[i] = participants.get(i).getDisplayName();
+        boolean[] checked = new boolean[participants.size()];
+        for (int i = 0; i < participants.size(); i++) {
+            names[i] = participants.get(i).getDisplayName();
+            checked[i] = payerMap.containsKey(participants.get(i).getId());
+        }
 
         new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Who paid the bill?")
-                .setItems(names, (dialog, which) -> {
-                    payerId = participants.get(which).getId();
-                    updatePayerButtonText();
+                .setTitle("Who paid? (select all)")
+                .setMultiChoiceItems(names, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
+                .setPositiveButton("Next", (dialog, which) -> {
+                    List<Participant> selected = new ArrayList<>();
+                    for (int i = 0; i < checked.length; i++) {
+                        if (checked[i]) selected.add(participants.get(i));
+                    }
+                    if (selected.isEmpty()) {
+                        Toast.makeText(getContext(), "Select at least one payer", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    showPayerAmounts(selected);
                 })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showPayerAmounts(List<Participant> payers) {
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(requireContext());
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, pad, pad, pad);
+
+        List<EditText> amountInputs = new ArrayList<>();
+        for (Participant p : payers) {
+            TextView label = new TextView(requireContext());
+            label.setText(p.getDisplayName() + " paid:");
+            layout.addView(label);
+            EditText input = new EditText(requireContext());
+            input.setHint("Amount");
+            input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+            if (payerMap.containsKey(p.getId())) {
+                input.setText(String.valueOf(payerMap.get(p.getId())));
+            }
+            layout.addView(input);
+            amountInputs.add(input);
+        }
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Enter amounts paid")
+                .setView(layout)
+                .setPositiveButton("Save", (dialog, which) -> {
+                    double billTotal = parseDouble(editTotalBill.getText().toString().trim());
+                    payerMap.clear();
+                    double totalPaid = 0;
+                    for (int i = 0; i < payers.size(); i++) {
+                        String amtStr = amountInputs.get(i).getText().toString().trim();
+                        if (!amtStr.isEmpty()) {
+                            double amt = parseDouble(amtStr);
+                            payerMap.put(payers.get(i).getId(), amt);
+                            totalPaid += amt;
+                        }
+                    }
+                    if (Math.abs(totalPaid - billTotal) > 0.01) {
+                        Toast.makeText(getContext(), "Total paid (₱" + String.format("%.2f", totalPaid) + ") must match bill total (₱" + String.format("%.2f", billTotal) + ")", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    updatePayerButtonText();
+                })                .setNegativeButton("Cancel", null)
                 .show();
     }
 
     private void updatePayerButtonText() {
-        if (payerId == -1) {
+        if (payerMap.isEmpty()) {
             buttonSelectPayer.setText("Select Payer");
         } else {
             List<Participant> participants = repository.getEventParticipants(eventId);
-            for (Participant p : participants) {
-                if (p.getId() == payerId) {
-                    buttonSelectPayer.setText("Paid by: " + p.getDisplayName());
-                    break;
+            StringBuilder sb = new StringBuilder("Paid by: ");
+            boolean first = true;
+            for (Map.Entry<Long, Double> entry : payerMap.entrySet()) {
+                for (Participant p : participants) {
+                    if (p.getId() == entry.getKey()) {
+                        if (!first) sb.append(", ");
+                        sb.append(p.getName());
+                        first = false;
+                        break;
+                    }
                 }
             }
+            buttonSelectPayer.setText(sb.toString());
         }
     }
 
     private void loadItems() {
         List<ExpenseItem> items = repository.getExpenseItemsForEvent(eventId);
-        adapter.setItems(items);
+        Map<Long, List<ItemAssignment>> assignments = repository.getAssignmentsByItem(eventId);
+        List<Participant> participants = repository.getEventParticipants(eventId);
+        adapter.setItemsWithAssignments(items, assignments, participants);
         updateRunningBalance();
     }
 
@@ -233,6 +368,10 @@ public class AddReceiptItemsFragment extends Fragment {
         String totalBillStr = editTotalBill.getText().toString().trim();
         if (!totalBillStr.isEmpty()) {
             double expectedTotal = parseDouble(totalBillStr);
+            if (CurrencyHelper.shouldRound(requireContext())) {
+                grandTotal = Math.floor(grandTotal);
+                expectedTotal = Math.floor(expectedTotal);
+            }
             if (Math.abs(grandTotal - expectedTotal) > 0.01) {
                 textSubtotalPreview.setText(String.format("Subtotal: ₱%.2f (Expected: ₱%.2f)", grandTotal, expectedTotal));
             } else {
@@ -323,7 +462,7 @@ public class AddReceiptItemsFragment extends Fragment {
                         if (checkedItems[i]) newAssignments.add(new ItemAssignment(item.getId(), allParticipants.get(i).getId(), null));
                     }
                     repository.replaceAssignments(item.getId(), newAssignments);
-                    updateRunningBalance();
+                    loadItems();
                 })
                 .show();
     }
@@ -331,10 +470,39 @@ public class AddReceiptItemsFragment extends Fragment {
     private void saveReceiptAndEventDetails() {
         Event event = repository.getEvent(eventId);
         if (event != null) {
-            repository.updateEvent(eventId, event.getName(), event.getCurrency(), payerId);
+            long firstPayer = payerMap.isEmpty() ? -1 : payerMap.keySet().iterator().next();
+            repository.updateEvent(eventId, event.getName(), event.getCurrency(), firstPayer);
+            repository.savePayments(eventId, payerMap);
+            SQLiteDatabase db = new ExplitDbHelper(requireContext()).getWritableDatabase();
+            ContentValues values = new ContentValues();
+            values.put("last_modified", System.currentTimeMillis());
+            db.update("groups", values, "id=?", new String[]{String.valueOf(event.getGroupId())});
+            db.close();
         }
     }
     private double parseDouble(String s) {
         try { return Double.parseDouble(s); } catch (Exception e) { return 0; }
+    }
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (receiptId != -1 && editTotalBill != null) {
+            double billTotal = parseDouble(editTotalBill.getText().toString().trim());
+            repository.updateReceiptDetails(receiptId, 0, 0, billTotal);
+        }
+        if (eventId != -1 && !payerMap.isEmpty()) {
+            repository.savePayments(eventId, payerMap);
+        }
+        if (eventId != -1) {
+            Event event = repository.getEvent(eventId);
+            if (event != null) {
+                android.database.sqlite.SQLiteDatabase db = new com.example.explit.data.ExplitDbHelper(requireContext()).getWritableDatabase();
+                android.content.ContentValues v = new android.content.ContentValues();
+                v.put("last_modified", System.currentTimeMillis());
+                db.update("groups", v, "id=?", new String[]{String.valueOf(event.getGroupId())});
+                db.update("events", v, "id=?", new String[]{String.valueOf(eventId)});
+                db.close();
+            }
+        }
     }
 }

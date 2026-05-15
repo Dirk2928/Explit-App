@@ -1,26 +1,21 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+
     <style name="Theme.Explit" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Primary brand color. -->
+
         <item name="colorPrimary">@color/primary</item>
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorPrimaryContainer">@color/primary</item>
         <item name="colorOnPrimaryContainer">@color/white</item>
 
-        <!-- Secondary brand color. -->
         <item name="colorSecondary">@color/success</item>
         <item name="colorOnSecondary">@color/white</item>
 
-        <!-- Status bar color. -->
         <item name="android:statusBarColor">@color/primary_dark</item>
 
-        <!-- Background colors -->
         <item name="android:windowBackground">@color/background</item>
 
-        <!-- Card Style -->
         <item name="materialCardViewStyle">@style/Widget.Explit.CardView</item>
 
-        <!-- Button Style -->
         <item name="materialButtonStyle">@style/Widget.Explit.Button</item>
     </style>
 
